@@ -8,13 +8,13 @@ export default async function CompaniesPage() {
 
   return (
     <>
-      <p className="text-ink-3 mb-3">Firma nomini o&apos;zgartirish mumkin — hisoblar va yozuvlar bog&apos;lanishi buzilmaydi.</p>
+      <p className="text-ink-3 mb-3">Фирма номини ўзгартириш мумкин — кассалар ва ёзувлар боғланиши бузилмайди.</p>
       <ReferenceEditor
         endpoint="/api/reference/companies"
         canEdit
-        usageLabel="Hisoblar"
+        usageLabel="Кассалар"
         emptyValues={{ name: "" }}
-        fields={[{ key: "name", label: "Nomi", type: "text" }]}
+        fields={[{ key: "name", label: "Номи", type: "text" }]}
         rows={rows.map((c) => ({ id: c.id, isActive: c.isActive, usage: c._count.accounts, values: { name: c.name } }))}
       />
     </>

@@ -7,17 +7,18 @@ import { Tabs } from "@/components/Tabs";
 export default async function SpravochnikLayout({ children }: { children: React.ReactNode }) {
   const user = await getSessionUser();
   const tabs = [
-    { href: "/spravochnik/materiallar", label: "Materiallar" },
-    { href: "/spravochnik/kategoriyalar", label: "Kategoriyalar" },
-    { href: "/spravochnik/manbalar", label: "Kirim manbalari" },
-    { href: "/spravochnik/hisoblar", label: "Hisoblar" },
-    { href: "/spravochnik/firmalar", label: "Firmalar" },
-    { href: "/spravochnik/obyektlar", label: "Ob'ektlar" },
-    ...(user && canManageUsers(user) ? [{ href: "/spravochnik/foydalanuvchilar", label: "Foydalanuvchilar" }] : []),
+    { href: "/spravochnik/materiallar", label: "Номлар" },
+    { href: "/spravochnik/kategoriyalar", label: "Категориялар" },
+    { href: "/spravochnik/yetkazib", label: "Етказиб берувчилар" },
+    { href: "/spravochnik/manbalar", label: "Пул берувчилар" },
+    { href: "/spravochnik/hisoblar", label: "Кассалар" },
+    { href: "/spravochnik/firmalar", label: "Фирмалар" },
+    { href: "/spravochnik/obyektlar", label: "Объектлар" },
+    ...(user && canManageUsers(user) ? [{ href: "/spravochnik/foydalanuvchilar", label: "Фойдаланувчилар" }] : []),
   ];
   return (
     <>
-      <PageHeader title="Spravochniklar" />
+      <PageHeader title="Рўйхатлар" />
       <Tabs items={tabs} />
       {children}
     </>

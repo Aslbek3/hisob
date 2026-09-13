@@ -30,7 +30,7 @@ export async function withUser(
   handler: (user: SessionUser) => Promise<Response>
 ): Promise<Response> {
   const user = await getSessionUser();
-  if (!user) return errorResponse("Tizimga qayta kiring", 401);
+  if (!user) return errorResponse("Тизимга қайта киринг", 401);
   if (!check(user)) return errorResponse(forbidden().message, 403);
 
   try {
@@ -41,10 +41,10 @@ export async function withUser(
     }
     if (error instanceof ZodError) {
       const first = error.issues[0];
-      return errorResponse(first?.message ?? "Ma'lumot noto'g'ri", 400, { code: "VALIDATION" });
+      return errorResponse(first?.message ?? "Маълумот нотўғри", 400, { code: "VALIDATION" });
     }
     logError(error, { path: new URL(request.url).pathname, method: request.method, userId: user.id });
-    return errorResponse("Serverda xatolik. Qayta urinib ko'ring.", 500);
+    return errorResponse("Серверда хатолик. Қайта уриниб кўринг.", 500);
   }
 }
 
@@ -54,7 +54,7 @@ export async function readBody<T>(request: Request, schema: ZodType<T>): Promise
   try {
     raw = await request.json();
   } catch {
-    throw new ServiceError("So'rov tanasi noto'g'ri (JSON emas)", 400);
+    throw new ServiceError("Сўров нотўғри", 400);
   }
   return schema.parse(raw);
 }
@@ -62,6 +62,6 @@ export async function readBody<T>(request: Request, schema: ZodType<T>): Promise
 /** URL'dagi [id] ni musbat butun songa aylantiradi. */
 export function parseId(value: string): number {
   const id = Number(value);
-  if (!Number.isInteger(id) || id <= 0) throw new ServiceError("Noto'g'ri identifikator", 400);
+  if (!Number.isInteger(id) || id <= 0) throw new ServiceError("Нотўғри идентификатор", 400);
   return id;
 }

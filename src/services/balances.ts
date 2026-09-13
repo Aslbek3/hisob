@@ -6,7 +6,8 @@ import type { SessionUser } from "@/types/auth";
 import { listEntriesForExport, type EntryRow } from "@/services/entries";
 
 /**
- * Kassa qoldig'i = boshlang'ich qoldiq + kirim − chiqim + kelgan o'tkazma − ketgan o'tkazma.
+ * Kassa qoldig'i = boshlang'ich qoldiq + kirim − chiqim (xarajat + zavodga to'lov) + kelgan o'tkazma − ketgan o'tkazma.
+ * Qarzga olingan tovar (GOODS_RECEIPT) kassaga tegmaydi.
  * Faqat faol (bekor qilinmagan) yozuvlar. Hech qayerda saqlanmaydi — har safar
  * yozuvlardan hisoblanadi, shuning uchun "qoldiq noto'g'ri yangilangan" holati bo'lmaydi.
  */
@@ -34,7 +35,7 @@ export async function getAccountBalances(): Promise<AccountBalance[]> {
     prisma.$queryRaw<{ id: number; income: bigint; expense: bigint; transfer_in: bigint; transfer_out: bigint }[]>`
       SELECT a.id,
         COALESCE(SUM(e.amount) FILTER (WHERE e.kind = 'INCOME'   AND e.account_id = a.id), 0)::bigint    AS income,
-        COALESCE(SUM(e.amount) FILTER (WHERE e.kind = 'EXPENSE'  AND e.account_id = a.id), 0)::bigint    AS expense,
+        COALESCE(SUM(e.amount) FILTER (WHERE e.kind IN ('EXPENSE', 'SUPPLIER_PAYMENT') AND e.account_id = a.id), 0)::bigint    AS expense,
         COALESCE(SUM(e.amount) FILTER (WHERE e.kind = 'TRANSFER' AND e.to_account_id = a.id), 0)::bigint AS transfer_in,
         COALESCE(SUM(e.amount) FILTER (WHERE e.kind = 'TRANSFER' AND e.account_id = a.id), 0)::bigint    AS transfer_out
       FROM accounts a
@@ -70,7 +71,7 @@ export function accountEffect(e: Pick<EntryRow, "kind" | "accountId" | "toAccoun
   const amount = BigInt(e.amount);
   if (e.kind === "INCOME") return amount;
   if (e.kind === "TRANSFER" && e.toAccountId === accountId) return amount;
-  return -amount; // EXPENSE yoki ketgan o'tkazma
+  return -amount; // xarajat, zavodga to'lov yoki ketgan o'tkazma
 }
 
 export type StatementRow = EntryRow & { effect: bigint; running: bigint };
@@ -88,7 +89,7 @@ export type AccountStatement = {
 /** Bitta hisobning bir oylik harakati: oy boshidagi qoldiq, har qator va yakuniy qoldiq. */
 export async function getAccountStatement(user: SessionUser, accountId: number, monthIso: string): Promise<AccountStatement> {
   const account = await prisma.account.findUnique({ where: { id: accountId }, include: { company: { select: { name: true } } } });
-  if (!account) throw notFound("Hisob topilmadi");
+  if (!account) throw notFound("Ҳисоб топилмади");
 
   const month = monthStartIso(monthIso);
   const [before] = await prisma.$queryRaw<{ total: bigint }[]>`

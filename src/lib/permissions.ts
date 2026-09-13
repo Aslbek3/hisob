@@ -26,13 +26,17 @@ export function canViewSite(user: SessionUser, siteId: number): boolean {
   return isOffice(user) || user.siteIds.includes(siteId);
 }
 
-/** Yozuv kiritish: prorab faqat chiqim va faqat o'z ob'ektiga. */
+/** Ob'ekt xarajati turlari: naqd xarid va qarzga/oldindan to'langan pulga kelgan tovar. */
+export const SITE_EXPENSE_KINDS: EntryKind[] = ["EXPENSE", "GOODS_RECEIPT"];
+export const isSiteExpense = (kind: EntryKind) => SITE_EXPENSE_KINDS.includes(kind);
+
+/** Yozuv kiritish: prorab faqat ob'ekt xarajati va faqat o'z ob'ektiga. */
 export function canCreateEntry(user: SessionUser, kind: EntryKind, siteId: number | null): boolean {
   if (isOffice(user)) return true;
-  return kind === "EXPENSE" && siteId !== null && user.siteIds.includes(siteId);
+  return isSiteExpense(kind) && siteId !== null && user.siteIds.includes(siteId);
 }
 
-/** Kiritish ekranini ochish — hamma rollar (prorab faqat chiqim rejimida). */
+/** Kunlik daftarni ochish — hamma rollar (prorab faqat o'z ob'ektlari). */
 export function canUseEntryScreen(_user: SessionUser): boolean {
   return true;
 }
@@ -49,7 +53,7 @@ export function canModifyEntry(
 ): boolean {
   if (isOffice(user)) return true;
   return (
-    entry.kind === "EXPENSE" &&
+    isSiteExpense(entry.kind) &&
     entry.createdById === user.id &&
     entry.siteId !== null &&
     user.siteIds.includes(entry.siteId) &&
@@ -72,7 +76,7 @@ export function canClosePeriods(user: SessionUser): boolean {
   return isDirector(user);
 }
 
-/** Spravochniklar (material, kategoriya, firma, hisob, kirim manbalari). */
+/** Spravochniklar (nomlar, kategoriya, firma, hisob, kirim manbalari, yetkazib beruvchilar). */
 export function canManageReference(user: SessionUser): boolean {
   return isOffice(user);
 }

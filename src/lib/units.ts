@@ -1,22 +1,27 @@
 /**
- * Material o'lchov birliklari. Ro'yxat kodda — qo'lda yozilgan "kg" / "kg." /
- * "kilogramm" chalkashligi bo'lmasligi uchun. Yangi birlik kerak bo'lsa shu
- * yerga qo'shiladi.
+ * O'lchov birliklari. Ro'yxat kodda — "кг" / "кг." / "килограмм" chalkashligi
+ * bo'lmasligi uchun. Kod (bazada saqlanadi) o'zgarmaydi, yorliq — ekranda.
+ * Yangi birlik kerak bo'lsa shu yerga qo'shiladi.
  */
 export const UNITS = [
-  { code: "kg", label: "kg" },
-  { code: "t", label: "tonna" },
-  { code: "m3", label: "m³" },
-  { code: "m2", label: "m²" },
-  { code: "m", label: "metr" },
-  { code: "dona", label: "dona" },
-  { code: "qop", label: "qop" },
-  { code: "l", label: "litr" },
-  { code: "pachka", label: "pachka" },
-  { code: "rulon", label: "rulon" },
-  { code: "list", label: "list" },
-  { code: "komplekt", label: "komplekt" },
-  { code: "reys", label: "reys" },
+  { code: "dona", label: "дона" },
+  { code: "kg", label: "кг" },
+  { code: "t", label: "тонна" },
+  { code: "m3", label: "куб" },
+  { code: "m2", label: "кв.м" },
+  { code: "m", label: "метр" },
+  { code: "qop", label: "қоп" },
+  { code: "pachka", label: "пачка" },
+  { code: "l", label: "литр" },
+  { code: "reys", label: "рейс" },
+  { code: "soat", label: "соат" },
+  { code: "kun", label: "кун" },
+  { code: "kishi", label: "киши" },
+  { code: "rulon", label: "рулон" },
+  { code: "list", label: "лист" },
+  { code: "bochka", label: "бочка" },
+  { code: "komplekt", label: "комплект" },
+  { code: "xizmat", label: "хизмат" },
 ] as const;
 
 export type UnitCode = (typeof UNITS)[number]["code"];

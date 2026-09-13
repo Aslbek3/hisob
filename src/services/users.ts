@@ -7,7 +7,7 @@ import type { SessionUser } from "@/types/auth";
 import { writeAudit } from "@/services/audit";
 
 const base = {
-  name: z.string().transform(cleanName).pipe(z.string().min(1, "Ismni kiriting").max(80)),
+  name: z.string().transform(cleanName).pipe(z.string().min(1, "Исмни ёзинг").max(80)),
   role: z.enum(["DIRECTOR", "ACCOUNTANT", "FOREMAN"]),
   siteIds: z.array(z.number().int().positive()).default([]),
 };
@@ -18,8 +18,8 @@ export const createUserSchema = z.object({
     .string()
     .trim()
     .toLowerCase()
-    .regex(/^[a-z0-9._-]{3,32}$/, "Login: 3–32 ta lotin harf, raqam, . _ -"),
-  password: z.string().min(MIN_PASSWORD_LENGTH, `Parol kamida ${MIN_PASSWORD_LENGTH} belgi`),
+    .regex(/^[a-z0-9._-]{3,32}$/, "Логин: 3–32 та лотин ҳарф, рақам, . _ -"),
+  password: z.string().min(MIN_PASSWORD_LENGTH, `Парол камида ${MIN_PASSWORD_LENGTH} белги`),
 });
 
 export const updateUserSchema = z.object({
@@ -51,7 +51,7 @@ function publicUser(u: { id: number; name: string; login: string; role: string; 
 
 export async function createUser(actor: SessionUser, input: z.infer<typeof createUserSchema>) {
   const exists = await prisma.user.findUnique({ where: { login: input.login } });
-  if (exists) throw new ServiceError(`"${input.login}" logini band`, 409);
+  if (exists) throw new ServiceError(`«${input.login}» логини банд`, 409);
   const passwordHash = await hashPassword(input.password);
   const siteIds = input.role === "FOREMAN" ? input.siteIds : [];
 
@@ -72,17 +72,17 @@ export async function createUser(actor: SessionUser, input: z.infer<typeof creat
 
 export async function updateUser(actor: SessionUser, id: number, input: z.infer<typeof updateUserSchema>) {
   if (input.newPassword !== undefined && input.newPassword.length < MIN_PASSWORD_LENGTH) {
-    throw new ServiceError(`Parol kamida ${MIN_PASSWORD_LENGTH} belgi`, 400);
+    throw new ServiceError(`Парол камида ${MIN_PASSWORD_LENGTH} белги`, 400);
   }
   if (id === actor.id && (!input.isActive || input.role !== actor.role)) {
-    throw new ServiceError("O'zingizni bloklab yoki rolingizni o'zgartirib bo'lmaydi", 400);
+    throw new ServiceError("Ўзингизни блоклаб ёки ролингизни ўзгартириб бўлмайди", 400);
   }
   const passwordHash = input.newPassword ? await hashPassword(input.newPassword) : undefined;
   const siteIds = input.role === "FOREMAN" ? input.siteIds : [];
 
   return prisma.$transaction(async (tx) => {
     const prev = await tx.user.findUnique({ where: { id }, include: { siteAssignments: true } });
-    if (!prev) throw notFound("Foydalanuvchi topilmadi");
+    if (!prev) throw notFound("Фойдаланувчи топилмади");
 
     const user = await tx.user.update({
       where: { id },

@@ -1,35 +1,40 @@
 import { requirePageUser } from "@/lib/auth";
 import { UNITS } from "@/lib/units";
 import { ReferenceEditor } from "@/components/ReferenceEditor";
-import { listMaterials } from "@/services/reference";
+import { listCategories, listMaterials } from "@/services/reference";
 
-export default async function MaterialsPage() {
+export default async function ItemsPage() {
   await requirePageUser(["DIRECTOR", "ACCOUNTANT"]);
-  const rows = await listMaterials();
+  const [rows, categories] = await Promise.all([listMaterials(), listCategories()]);
 
   return (
     <>
-      <p className="text-ink-3 mb-3 max-w-[720px]">
-        Material bir marta kiritiladi va keyin faqat ro&apos;yxatdan tanlanadi. Katta-kichik harf, ortiqcha bo&apos;shliq va
-        o&apos; / o‘ / oʻ farqi hisobga olinmaydi — &quot;Sement M400&quot; va &quot;sement  m400&quot; bitta material.
-        Narx doim bitta birlik uchun kiritiladi.
+      <p className="text-ink-3 mb-3 max-w-[760px]">
+        Кунлик дафтарда танланадиган ҳамма нарса: материал (Бетон 250 марка), хизмат (Юк ташиш), ёқилғи ва ҳ.к.
+        Бир ном фақат бир марта ёзилади — катта-кичик ҳарф ва ортиқча бўшлиқ фарқ қилмайди.
+        Нарх доим битта бирлик учун ёзилади.
       </p>
       <ReferenceEditor
         endpoint="/api/reference/materials"
         canEdit
-        emptyValues={{ name: "", unit: "kg" }}
+        emptyValues={{ name: "", unit: "dona", categoryId: null }}
         fields={[
-          { key: "name", label: "Nomi", type: "text", placeholder: "Sement M400" },
+          { key: "name", label: "Номи", type: "text", placeholder: "Бетон 250 марка" },
+          { key: "unit", label: "Бирлик", type: "select", width: "130px", options: UNITS.map((u) => ({ value: u.code, label: u.label })), lockedWhenUsed: true },
           {
-            key: "unit",
-            label: "Birlik",
-            type: "select",
-            width: "140px",
-            options: UNITS.map((u) => ({ value: u.code, label: u.label })),
-            lockedWhenUsed: true,
+            key: "categoryId",
+            label: "Категория",
+            type: "select-id",
+            width: "200px",
+            options: categories.filter((c) => c.isActive).map((c) => ({ value: String(c.id), label: c.name })),
           },
         ]}
-        rows={rows.map((m) => ({ id: m.id, isActive: m.isActive, usage: m._count.entries, values: { name: m.name, unit: m.unit } }))}
+        rows={rows.map((m) => ({
+          id: m.id,
+          isActive: m.isActive,
+          usage: m._count.entries,
+          values: { name: m.name, unit: m.unit, categoryId: m.categoryId ? String(m.categoryId) : null },
+        }))}
       />
     </>
   );

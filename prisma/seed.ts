@@ -1,11 +1,12 @@
 /**
  * Lokal dev bazaga boshlang'ich ma'lumot. PRODUCTION'DA ISHLATILMAYDI —
- * u yerda birinchi direktor `npm run create-user` bilan yaratiladi.
+ * u yerda birinchi foydalanuvchi `npm run create-user` bilan yaratiladi.
  *
  * Parol repo'da YOZILMAYDI (repo ochiq): SEED_PASSWORD muhit o'zgaruvchisidan olinadi.
  *   SEED_PASSWORD="..." npm run db:seed
  *
  * Bo'sh bo'lmagan bazada ishlamaydi — mavjud ma'lumotni ustidan yozib yubormaslik uchun.
+ * Nomlar umumiy (namuna) — haqiqiy firma ma'lumoti bu yerga yozilmaydi.
  */
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
@@ -25,77 +26,64 @@ async function main() {
   const hash = await bcrypt.hash(password, 10);
 
   // Ketma-ket (Promise.all emas) — id tartibi har safar bir xil bo'lsin
-  const firmaA = await prisma.company.create({ data: { name: "Firma A" } });
-  const firmaB = await prisma.company.create({ data: { name: "Firma B" } });
-
+  const firma = await prisma.company.create({ data: { name: "Фирма А" } });
   await prisma.account.createMany({
     data: [
-      { name: "Firma A — bank", type: "BANK", companyId: firmaA.id, sortOrder: 1 },
-      { name: "Firma A — naqd", type: "CASH", companyId: firmaA.id, sortOrder: 2 },
-      { name: "Firma B — bank", type: "BANK", companyId: firmaB.id, sortOrder: 3 },
-      { name: "Firma B — naqd", type: "CASH", companyId: firmaB.id, sortOrder: 4 },
-      { name: "Shaxsiy naqd", type: "PERSONAL", sortOrder: 5 },
+      { name: "Фирма А — нахт", type: "CASH", companyId: firma.id, sortOrder: 1 },
+      { name: "Фирма А — перечисления", type: "BANK", companyId: firma.id, sortOrder: 2 },
+      { name: "Шахсий (прораб)", type: "PERSONAL", sortOrder: 3 },
     ],
   });
 
-  const categories = [
-    ["Material", true],
-    ["Transport", false],
-    ["Texnika arendasi", false],
-    ["Ish haqi", false],
-    ["Ovqat", false],
-    ["Kommunal", false],
-    ["Rasmiy to'lov", false],
-    ["Boshqa", false],
-  ] as const;
-  await prisma.category.createMany({
-    data: categories.map(([name, isMaterial], i) => ({ name, isMaterial, sortOrder: i + 1 })),
-  });
+  const categoryNames = ["Материал", "Транспорт", "Ёқилғи", "Техника ижараси", "Асбоб ва сарф", "Иш ҳақи", "Овқат", "Коммунал", "Расмий тўлов", "Бошқа"];
+  for (const [i, name] of categoryNames.entries()) await prisma.category.create({ data: { name, sortOrder: i + 1 } });
+  const cat = Object.fromEntries((await prisma.category.findMany()).map((c) => [c.name, c.id]));
 
-  const materials: [string, string][] = [
-    ["Sement M400", "qop"],
-    ["Sement M500", "qop"],
-    ["Armatura 12 mm", "kg"],
-    ["Armatura 14 mm", "kg"],
-    ["G'isht pishgan", "dona"],
-    ["Qum", "m3"],
-    ["Shag'al", "m3"],
-    ["Beton M300", "m3"],
-    ["Penoblok", "m3"],
-    ["Taxta 50×150", "m3"],
+  const items: [string, string, string][] = [
+    ["Бетон 250 марка", "m3", "Материал"],
+    ["Арматура 12 лик", "kg", "Материал"],
+    ["Арматура 16 лик", "kg", "Материал"],
+    ["Цемент", "qop", "Материал"],
+    ["Қум", "m3", "Материал"],
+    ["Шағал", "m3", "Материал"],
+    ["Тахта", "m3", "Материал"],
+    ["Мих", "kg", "Материал"],
+    ["Электрод", "pachka", "Асбоб ва сарф"],
+    ["Болгарка тоши", "dona", "Асбоб ва сарф"],
+    ["Перчатка", "dona", "Асбоб ва сарф"],
+    ["Мошинага газ", "xizmat", "Ёқилғи"],
+    ["Движокка бензин", "l", "Ёқилғи"],
+    ["Юк ташиш (такси)", "reys", "Транспорт"],
+    ["Кран хизмати", "soat", "Техника ижараси"],
+    ["Опалубка ижараси", "xizmat", "Техника ижараси"],
+    ["Усталарга аванс", "xizmat", "Иш ҳақи"],
+    ["Ишчиларга овқат пули", "xizmat", "Овқат"],
+    ["Электр энергия", "xizmat", "Коммунал"],
   ];
-  await prisma.material.createMany({ data: materials.map(([name, unit]) => ({ name, nameKey: nameKey(name), unit })) });
+  await prisma.material.createMany({ data: items.map(([name, unit, c]) => ({ name, nameKey: nameKey(name), unit, categoryId: cat[c] })) });
 
   await prisma.counterparty.createMany({
     data: [
-      { name: "Buyurtmachi", kind: "PAYER" },
-      { name: "Ta'sischi", kind: "PAYER" },
+      { name: "Инвестор 1", kind: "PAYER" },
+      { name: "Бетон завод", kind: "SUPPLIER" },
+      { name: "Арматура база", kind: "SUPPLIER" },
     ],
   });
 
-  const site1 = await prisma.site.create({ data: { name: "Yunusobod 9-uy", address: "Yunusobod tumani" } });
-  const site2 = await prisma.site.create({ data: { name: "Chilonzor 3-blok", address: "Chilonzor tumani" } });
+  const site1 = await prisma.site.create({ data: { name: "Объект 1", address: "Шаҳар, кўча" } });
+  await prisma.site.create({ data: { name: "Объект 2", address: "Шаҳар, кўча" } });
 
   await prisma.user.createMany({
     data: [
-      { name: "Direktor", login: "direktor", passwordHash: hash, role: "DIRECTOR" },
-      { name: "Buxgalter", login: "buxgalter", passwordHash: hash, role: "ACCOUNTANT" },
-      { name: "Prorab 1", login: "prorab1", passwordHash: hash, role: "FOREMAN" },
-      { name: "Prorab 2", login: "prorab2", passwordHash: hash, role: "FOREMAN" },
+      { name: "Директор", login: "direktor", passwordHash: hash, role: "DIRECTOR" },
+      { name: "Ҳисобчи", login: "hisobchi", passwordHash: hash, role: "ACCOUNTANT" },
+      { name: "Прораб", login: "prorab", passwordHash: hash, role: "FOREMAN" },
     ],
   });
-  const [p1, p2] = await Promise.all([
-    prisma.user.findUniqueOrThrow({ where: { login: "prorab1" } }),
-    prisma.user.findUniqueOrThrow({ where: { login: "prorab2" } }),
-  ]);
-  await prisma.siteAssignment.createMany({
-    data: [
-      { userId: p1.id, siteId: site1.id },
-      { userId: p2.id, siteId: site2.id },
-    ],
-  });
+  const prorab = await prisma.user.findUniqueOrThrow({ where: { login: "prorab" } });
+  await prisma.siteAssignment.create({ data: { userId: prorab.id, siteId: site1.id } });
 
-  console.log("Seed tayyor: direktor, buxgalter, prorab1, prorab2 (parol — SEED_PASSWORD).");
+  console.log("Seed tayyor: direktor, hisobchi, prorab (parol — SEED_PASSWORD).");
 }
 
 main()

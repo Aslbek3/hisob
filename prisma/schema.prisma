@@ -140,19 +140,25 @@ model Category {
   sortOrder  Int     @default(0) @map("sort_order")
 
   entries Entry[]
+  items   Material[]
 
   @@map("categories")
 }
 
+// "Nom" — kunlik daftarda tanlanadigan har qanday narsa: material (Бетон 250 марка, куб),
+// xizmat (Юк ташиш, рейс), yoqilg'i (Мошинага газ) va h.k. Kategoriya shu yerdan olinadi —
+// foydalanuvchi har qatorda kategoriya tanlamaydi.
 model Material {
-  id        Int      @id @default(autoincrement())
-  name      String
+  id         Int       @id @default(autoincrement())
+  name       String
   // Normalizatsiya qilingan nom: kichik harf, bo'shliqlar yig'ilgan, o' / o‘ / oʻ / o`
-  // bir xil belgiga keltirilgan. "Sement M400" va "sement  m400" — bitta material.
-  nameKey   String   @unique @map("name_key")
-  unit      String // lib/units.ts ro'yxatidan: kg, t, m³, m², m, dona, qop, l ...
-  isActive  Boolean  @default(true) @map("is_active")
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  // bir xil belgiga keltirilgan. "Бетон 250 марка" va "бетон  250  марка" — bitta nom.
+  nameKey    String    @unique @map("name_key")
+  unit       String // lib/units.ts ro'yxatidan
+  categoryId Int?      @map("category_id") // yangi nomlarda majburiy (servis tekshiradi)
+  category   Category? @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  isActive   Boolean   @default(true) @map("is_active")
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz
 
   entries Entry[]
 
@@ -160,8 +166,8 @@ model Material {
 }
 
 enum CounterpartyKind {
-  PAYER // kirim manbai: buyurtmachi, investor, ta'sischi
-  // SUPPLIER   — 2-bosqich: zavod/baza (+ tracksBalance Boolean ustuni qo'shiladi)
+  PAYER // kirim manbai: investor, buyurtmachi, ta'sischi
+  SUPPLIER // yetkazib beruvchi: beton zavodi, baza — to'lov va tovar alohida hisoblanadi
   // CONTRACTOR — 3-bosqich: usta/brigada
 }
 
@@ -185,8 +191,8 @@ enum EntryKind {
   INCOME // kirim: hisobga pul tushdi (ob'ekt uchun)
   EXPENSE // chiqim: hisobdan pul ketdi — ob'ekt xarajati
   TRANSFER // hisoblar orasida (bankdan naqdga) — ob'ekt xarajati emas
-  // SUPPLIER_PAYMENT — 2-bosqich: zavodga to'lov (hisob −, ob'ekt yo'q)
-  // GOODS_RECEIPT    — 2-bosqich: tovar keldi (ob'ekt xarajati, hisob yo'q)
+  SUPPLIER_PAYMENT // yetkazib beruvchiga oldindan/qarz uchun to'lov: hisob −, ob'ekt yo'q
+  GOODS_RECEIPT // tovar qarzga/oldindan to'langan pulga keldi: ob'ekt xarajati, hisob yo'q
 }
 
 enum EntryStatus {
@@ -209,10 +215,13 @@ model Entry {
   // 3-bosqich: contractId Int? — usta avansi = shu yozuvning o'zi (EXPENSE, Ish haqi),
   //            ikki marta yozilmaydi, kassa qoldig'i avtomatik to'g'ri chiqadi.
 
-  quantity  Decimal @default(1) @db.Decimal(14, 3)
-  unitPrice BigInt  @map("unit_price") // bitta birlik narxi, so'm
-  amount    BigInt // = round(quantity × unitPrice); qo'lda kiritilmaydi
-  note      String?
+  quantity     Decimal @default(1) @db.Decimal(14, 3)
+  unitPrice    BigInt  @map("unit_price") // bitta birlik narxi, so'm
+  // To'langan summa — asosiy fakt. Odatda = round(quantity × unitPrice); farq bo'lsa
+  // (chegirma, yaxlitlash) adjustReason majburiy (DB CHECK ham shuni talab qiladi).
+  amount       BigInt
+  adjustReason String? @map("adjust_reason")
+  note         String?
 
   createdById   Int       @map("created_by_id")
   createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz
@@ -237,13 +246,15 @@ model Entry {
   @@index([toAccountId])
   @@index([date])
   @@index([categoryId])
+  @@index([counterpartyId, date]) // yetkazib beruvchi solishtirmasi
   @@index([createdById])
   @@map("entries")
 }
 
 // Migratsiyaga qo'lda qo'shilgan himoya (Prisma sxemada yozib bo'lmaydi) —
-// prisma/migrations/*_init/migration.sql oxiriga qarang:
-//   CHECK: amount > 0, quantity > 0, amount = round(quantity * unit_price)
+// prisma/migrations/*_init va *_suppliers_items migration.sql oxiriga qarang:
+//   CHECK: amount > 0, quantity > 0
+//   CHECK: amount = round(quantity * unit_price) YOKI adjust_reason to'ldirilgan
 //   CHECK: har bir kind uchun majburiy maydonlar; CANCELLED → sabab majburiy
 //   TRIGGER: entries'dan DELETE taqiqlangan; audit_logs faqat qo'shiladi
 

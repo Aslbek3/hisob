@@ -3,20 +3,42 @@ import { excelResponse } from "@/lib/excel";
 import { isValidIsoDate, monthStartIso, todayIso } from "@/lib/dates";
 import { canViewFinance, canViewJournal } from "@/lib/permissions";
 import { parseEntryFilters } from "@/services/entries";
-import { exportBalances, exportJournal, exportSite, exportSites, exportStatement } from "@/services/exports";
+import {
+  exportBalances,
+  exportJournal,
+  exportPeriodReport,
+  exportSite,
+  exportSites,
+  exportStatement,
+  exportSupplierStatement,
+} from "@/services/exports";
 
 /**
- * Excel eksport: /api/export/jurnal?..., /obyektlar, /obyekt?id=, /hisoblar, /hisob?id=&month=
- * Jurnal va ob'ektlar — hamma (prorab o'z doirasida), hisoblar — faqat ofis.
+ * Excel eksport:
+ *   /hisobot?siteId=&from=&to=   — davriy hisobot (Telegram uchun)
+ *   /jurnal?...  /obyektlar  /obyekt?id=
+ *   /hisoblar  /hisob?id=&month=  /yetkazib?id=&from=&to=   — faqat ofis
  */
+const FINANCE = new Set(["hisoblar", "hisob", "yetkazib"]);
+
 export async function GET(request: Request, { params }: { params: Promise<{ report: string }> }) {
   const { report } = await params;
-  const finance = report === "hisoblar" || report === "hisob";
 
-  return withUser(request, finance ? canViewFinance : canViewJournal, async (user) => {
+  return withUser(request, FINANCE.has(report) ? canViewFinance : canViewJournal, async (user) => {
     const p = new URL(request.url).searchParams;
+    const date = (k: string) => {
+      const v = p.get(k);
+      return v && isValidIsoDate(v) ? v : undefined;
+    };
+    const optionalId = () => (p.get("siteId") ? parseId(p.get("siteId")!) : undefined);
+
     let file;
     switch (report) {
+      case "hisobot": {
+        const today = todayIso();
+        file = await exportPeriodReport(user, { siteId: optionalId(), from: date("from") ?? today, to: date("to") ?? today });
+        break;
+      }
       case "jurnal":
         file = await exportJournal(user, parseEntryFilters(p));
         break;
@@ -29,13 +51,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ repo
       case "hisoblar":
         file = await exportBalances();
         break;
-      case "hisob": {
-        const month = p.get("month");
-        file = await exportStatement(user, parseId(p.get("id") ?? ""), month && isValidIsoDate(month) ? month : monthStartIso(todayIso()));
+      case "hisob":
+        file = await exportStatement(user, parseId(p.get("id") ?? ""), date("month") ?? monthStartIso(todayIso()));
         break;
-      }
+      case "yetkazib":
+        file = await exportSupplierStatement(user, parseId(p.get("id") ?? ""), { from: date("from"), to: date("to") });
+        break;
       default:
-        return errorResponse("Noma'lum hisobot", 404);
+        return errorResponse("Номаълум ҳисобот", 404);
     }
     return excelResponse(file.buffer, file.filename);
   });

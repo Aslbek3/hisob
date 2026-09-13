@@ -25,8 +25,8 @@ export default async function ObyektlarPage() {
   return (
     <>
       <PageHeader
-        title="Ob'ektlar"
-        subtitle={`${active.length} ta faol${archived.length ? `, ${archived.length} ta arxivda` : ""}`}
+        title="Объектлар"
+        subtitle={`${active.length} та фаол${archived.length ? `, ${archived.length} та ёпилган` : ""}`}
         actions={<ExportLink href="/api/export/obyektlar" />}
       />
 
@@ -36,14 +36,14 @@ export default async function ObyektlarPage() {
         <table className="tbl">
           <thead>
             <tr>
-              <th>Ob&apos;ekt</th>
-              {office && <th className="num">Jami kirim</th>}
-              <th className="num">Jami chiqim</th>
+              <th>Объект</th>
+              {office && <th className="num">Жами кирим</th>}
+              <th className="num">Жами харажат</th>
               {months.map((m) => (
                 <th key={m} className="num">
                   {formatMonthShort(m)}
                   <span className={`block text-[11px] font-normal ${closed.has(m) ? "text-ink-3" : "text-plus"}`}>
-                    {closed.has(m) ? "yopilgan" : "ochiq"}
+                    {closed.has(m) ? "ёпилган" : "очиқ"}
                   </span>
                 </th>
               ))}
@@ -54,7 +54,7 @@ export default async function ObyektlarPage() {
             {sites.length === 0 && (
               <tr>
                 <td colSpan={months.length + 4} className="text-ink-3 py-6 text-center">
-                  Hali ob&apos;ekt yo&apos;q
+                  Ҳали объект йўқ
                 </td>
               </tr>
             )}
@@ -64,7 +64,7 @@ export default async function ObyektlarPage() {
                   <Link href={`/obyektlar/${s.id}`} className="link font-medium">
                     {s.name}
                   </Link>
-                  {s.status === "ARCHIVED" && <span className="ml-2 text-[12px]">arxivda</span>}
+                  {s.status === "ARCHIVED" && <span className="ml-2 text-[12px]">ёпилган</span>}
                   {s.address && <div className="text-[12px] text-ink-3">{s.address}</div>}
                 </td>
                 {office && (
@@ -91,7 +91,7 @@ export default async function ObyektlarPage() {
           {sites.length > 1 && (
             <tfoot>
               <tr>
-                <td>Jami</td>
+                <td>Жами</td>
                 {office && (
                   <td className="num">
                     <Money value={total((s) => s.income)} />

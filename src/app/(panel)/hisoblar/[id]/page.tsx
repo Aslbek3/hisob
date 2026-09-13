@@ -27,7 +27,7 @@ export default async function AccountPage({ params, searchParams }: { params: Pr
   return (
     <>
       <PageHeader
-        back={{ href: "/hisoblar", label: "Hisoblar" }}
+        back={{ href: "/hisoblar", label: "Кассалар" }}
         title={st.account.name}
         subtitle={st.account.companyName ?? undefined}
         actions={<ExportLink href={`/api/export/hisob?id=${id}&month=${month}`} />}
@@ -46,10 +46,10 @@ export default async function AccountPage({ params, searchParams }: { params: Pr
       </div>
 
       <dl className="flex flex-wrap gap-x-10 gap-y-2 mb-4 bg-paper border border-line px-4 py-3">
-        <Stat label="Oy boshiga" value={st.opening} />
-        <Stat label="Kirdi" value={st.inflow} />
-        <Stat label="Chiqdi" value={st.outflow} />
-        <Stat label="Oy oxiriga" value={st.closing} strong />
+        <Stat label="Ой бошига" value={st.opening} />
+        <Stat label="Кирди" value={st.inflow} />
+        <Stat label="Чиқди" value={st.outflow} />
+        <Stat label="Ой охирига" value={st.closing} strong />
       </dl>
 
       <div className="overflow-x-auto border border-line">
@@ -57,20 +57,20 @@ export default async function AccountPage({ params, searchParams }: { params: Pr
           <thead>
             <tr>
               <th className="num">№</th>
-              <th>Sana</th>
-              <th>Turi</th>
-              <th>Ob&apos;ekt / hisob</th>
-              <th>Tavsif</th>
-              <th className="num">Kirim</th>
-              <th className="num">Chiqim</th>
-              <th className="num">Qoldiq</th>
+              <th>Сана</th>
+              <th>Тури</th>
+              <th>Объект / ҳисоб</th>
+              <th>Тавсиф</th>
+              <th className="num">Кирим</th>
+              <th className="num">Чиқим</th>
+              <th className="num">Қолдиқ</th>
             </tr>
           </thead>
           <tbody>
             {st.rows.length === 0 && (
               <tr>
                 <td colSpan={8} className="text-center text-ink-3 py-6">
-                  Bu oyda harakat yo&apos;q
+                  Бу ойда ҳаракат йўқ
                 </td>
               </tr>
             )}
@@ -84,7 +84,7 @@ export default async function AccountPage({ params, searchParams }: { params: Pr
                 <td className="whitespace-nowrap">{formatDate(r.date)}</td>
                 <td>{KIND_LABEL[r.kind]}</td>
                 <td>{r.siteName ?? (r.toAccountId === id ? `← ${r.accountName}` : `→ ${r.toAccountName}`)}</td>
-                <td>{[r.categoryName, r.materialName, r.counterpartyName, r.note].filter(Boolean).join(" · ")}</td>
+                <td>{[r.materialName, r.counterpartyName, r.note].filter(Boolean).join(" · ")}</td>
                 <td className="num">{r.effect > 0n && <Money value={r.effect} />}</td>
                 <td className="num">{r.effect < 0n && <Money value={-r.effect} />}</td>
                 <td className="num font-medium">

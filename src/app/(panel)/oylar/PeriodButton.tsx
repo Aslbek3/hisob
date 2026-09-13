@@ -7,11 +7,11 @@ export function PeriodButton({ month, closed, label }: { month: string; closed: 
 
   async function onClick() {
     if (closed) {
-      const reason = window.prompt(`${label} qayta ochilsinmi? Sababini yozing:`);
+      const reason = window.prompt(`${label} қайта очилсинми? Сабабини ёзинг:`);
       if (!reason?.trim()) return;
       await run(() => sendJson("/api/periods", "POST", { action: "reopen", month, reason }));
     } else {
-      if (!window.confirm(`${label} yopilsinmi? Shundan keyin bu oyga yozuv qo'shib yoki o'zgartirib bo'lmaydi.`)) return;
+      if (!window.confirm(`${label} ёпилсинми? Шундан кейин бу ойга ёзув қўшиб ёки ўзгартириб бўлмайди.`)) return;
       await run(() => sendJson("/api/periods", "POST", { action: "close", month }));
     }
   }
@@ -19,7 +19,7 @@ export function PeriodButton({ month, closed, label }: { month: string; closed: 
   return (
     <>
       <button className={closed ? "link text-[13px]" : "btn"} onClick={onClick} disabled={pending}>
-        {closed ? "Qayta ochish" : "Oyni yopish"}
+        {closed ? "Қайта очиш" : "Ойни ёпиш"}
       </button>
       {error && <div className="text-minus text-[12px]">{error}</div>}
     </>

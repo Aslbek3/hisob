@@ -37,7 +37,8 @@ export function ReferenceEditor({
   canEdit,
   emptyValues,
   showActive = true,
-  usageLabel = "Yozuvlar",
+  usageLabel = "Ёзувлар",
+  extra = {},
 }: {
   endpoint: string;
   fields: Field[];
@@ -46,6 +47,8 @@ export function ReferenceEditor({
   emptyValues: Values;
   showActive?: boolean;
   usageLabel?: string;
+  /** Har bir so'rovga qo'shiladigan qat'iy maydonlar (masalan kind: "SUPPLIER"). */
+  extra?: Record<string, unknown>;
 }) {
   const [editing, setEditing] = useState<number | "new" | null>(null);
   const [draft, setDraft] = useState<Values>(emptyValues);
@@ -56,7 +59,7 @@ export function ReferenceEditor({
   const visible = rows.filter((r) => r.isActive || showInactive);
 
   function toPayload(values: Values, isActive: boolean) {
-    const out: Record<string, unknown> = { isActive };
+    const out: Record<string, unknown> = { ...extra, isActive };
     for (const f of fields) {
       const v = values[f.key];
       if (f.type === "select-id") out[f.key] = v ? Number(v) : null;
@@ -116,7 +119,7 @@ export function ReferenceEditor({
   }
 
   function display(f: Field, v: string | boolean | null) {
-    if (f.type === "checkbox") return v ? "ha" : "";
+    if (f.type === "checkbox") return v ? "ҳа" : "";
     if (f.type === "select" || f.type === "select-id") return f.options?.find((o) => o.value === v)?.label ?? "—";
     return v || "—";
   }
@@ -131,10 +134,10 @@ export function ReferenceEditor({
       {showActive && <td />}
       <td className="whitespace-nowrap text-right">
         <button className="btn btn-primary" disabled={pending} onClick={() => void save(id, draft, isActive)}>
-          Saqlash
+          Сақлаш
         </button>{" "}
         <button className="btn" onClick={() => setEditing(null)}>
-          Bekor
+          Бекор
         </button>
       </td>
     </tr>
@@ -145,13 +148,13 @@ export function ReferenceEditor({
       <div className="flex items-center gap-3 mb-2">
         {canEdit && editing !== "new" && (
           <button className="btn" onClick={() => startEdit("new", emptyValues)}>
-            + Qo&apos;shish
+            + Қўшиш
           </button>
         )}
         {inactiveCount > 0 && (
           <label className="flex items-center gap-1.5 text-[13px] text-ink-2">
             <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />
-            O&apos;chirilganlarni ko&apos;rsatish ({inactiveCount})
+            Ўчирилганларни кўрсатиш ({inactiveCount})
           </label>
         )}
         {error && <span className="text-minus text-[13px]">{error}</span>}
@@ -174,7 +177,7 @@ export function ReferenceEditor({
             {visible.length === 0 && editing !== "new" && (
               <tr>
                 <td colSpan={fields.length + 2} className="text-center text-ink-3 py-6">
-                  Bo&apos;sh
+                  Бўш
                 </td>
               </tr>
             )}
@@ -193,11 +196,11 @@ export function ReferenceEditor({
                     {canEdit && (
                       <>
                         <button className="link" onClick={() => startEdit(r.id, r.values)}>
-                          Tahrirlash
+                          Таҳрирлаш
                         </button>
                         {showActive && (
                           <button className="link ml-3" disabled={pending} onClick={() => void save(r.id, r.values, !r.isActive)}>
-                            {r.isActive ? "O'chirish" : "Qayta yoqish"}
+                            {r.isActive ? "Ўчириш" : "Қайта ёқиш"}
                           </button>
                         )}
                       </>

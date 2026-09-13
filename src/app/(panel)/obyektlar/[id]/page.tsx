@@ -27,17 +27,17 @@ export default async function SiteCardPage({ params }: { params: Promise<{ id: s
   return (
     <>
       <PageHeader
-        back={{ href: "/obyektlar", label: "Ob'ektlar" }}
+        back={{ href: "/obyektlar", label: "Объектлар" }}
         title={site.name}
-        subtitle={[site.address, site.status === "ARCHIVED" ? "arxivda" : null].filter(Boolean).join(" · ") || undefined}
+        subtitle={[site.address, site.status === "ARCHIVED" ? "ёпилган" : null].filter(Boolean).join(" · ") || undefined}
         actions={
           <>
             <Link href={`/jurnal?siteId=${site.id}`} className="btn">
-              Jurnal
+              Ёзувлар
             </Link>
             {site.status === "ACTIVE" && (
               <Link href={`/kiritish?siteId=${site.id}`} className="btn">
-                Kiritish
+                Кунлик дафтар
               </Link>
             )}
             <ExportLink href={`/api/export/obyekt?id=${site.id}`} />
@@ -49,21 +49,21 @@ export default async function SiteCardPage({ params }: { params: Promise<{ id: s
       <dl className="flex flex-wrap gap-x-10 gap-y-2 mb-5 bg-paper border border-line px-4 py-3">
         {office && (
           <div>
-            <dt className="text-ink-3 text-[12px]">Jami kirim</dt>
+            <dt className="text-ink-3 text-[13px]">Жами кирим</dt>
             <dd className="text-[18px] font-semibold">
               <Money value={card.income} />
             </dd>
           </div>
         )}
         <div>
-          <dt className="text-ink-3 text-[12px]">Jami chiqim</dt>
+          <dt className="text-ink-3 text-[13px]">Жами харажат</dt>
           <dd className="text-[18px] font-semibold">
             <Money value={card.expense} />
           </dd>
         </div>
         {office && (
           <div>
-            <dt className="text-ink-3 text-[12px]">Farq (kirim − chiqim)</dt>
+            <dt className="text-ink-3 text-[13px]">Фарқ (кирим − харажат)</dt>
             <dd className="text-[18px] font-semibold">
               <Money value={(card.income ?? 0n) - card.expense} signed />
             </dd>
@@ -72,17 +72,17 @@ export default async function SiteCardPage({ params }: { params: Promise<{ id: s
       </dl>
 
       <section className="mb-6">
-        <h2 className="font-semibold mb-2">Oylar bo&apos;yicha</h2>
+        <h2 className="font-semibold mb-2">Ойлар бўйича</h2>
         {card.months.length === 0 ? (
-          <p className="text-ink-3">Hali yozuv yo&apos;q.</p>
+          <p className="text-ink-3">Ҳали ёзув йўқ.</p>
         ) : (
           <div className="overflow-x-auto border border-line">
             <table className="tbl">
               <thead>
                 <tr>
-                  <th>Oy</th>
-                  {office && <th className="num">Kirim</th>}
-                  <th className="num">Chiqim</th>
+                  <th>Ой</th>
+                  {office && <th className="num">Кирим</th>}
+                  <th className="num">Харажат</th>
                   {card.categories.map((c) => (
                     <th key={c.id} className="num">
                       {c.name}
@@ -97,7 +97,7 @@ export default async function SiteCardPage({ params }: { params: Promise<{ id: s
                       <Link href={`/jurnal?siteId=${site.id}&from=${m.month}&to=${monthEndIso(m.month)}`} className="link">
                         {formatMonth(m.month)}
                       </Link>
-                      {closed.has(m.month) && <span className="ml-2 text-[12px] text-ink-3">yopilgan</span>}
+                      {closed.has(m.month) && <span className="ml-2 text-[12px] text-ink-3">ёпилган</span>}
                     </td>
                     {office && (
                       <td className="num">
@@ -117,7 +117,7 @@ export default async function SiteCardPage({ params }: { params: Promise<{ id: s
               </tbody>
               <tfoot>
                 <tr>
-                  <td>Jami</td>
+                  <td>Жами</td>
                   {office && (
                     <td className="num">
                       <Money value={card.income} />
@@ -140,15 +140,15 @@ export default async function SiteCardPage({ params }: { params: Promise<{ id: s
 
       {card.materials.length > 0 && (
         <section>
-          <h2 className="font-semibold mb-2">Materiallar</h2>
+          <h2 className="font-semibold mb-2">Нималар олинган</h2>
           <div className="overflow-x-auto border border-line max-w-[760px]">
             <table className="tbl">
               <thead>
                 <tr>
-                  <th>Material</th>
-                  <th className="num">Miqdor</th>
-                  <th>Birlik</th>
-                  <th className="num">Summa</th>
+                  <th>Номи</th>
+                  <th className="num">Миқдор</th>
+                  <th>Бирлик</th>
+                  <th className="num">Сумма</th>
                 </tr>
               </thead>
               <tbody>

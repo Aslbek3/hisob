@@ -11,7 +11,7 @@ export default async function SitesRefPage() {
   return (
     <>
       <p className="text-ink-3 mb-3">
-        Ob&apos;ektni ochish va yopish — &quot;Ob&apos;ektlar&quot; sahifasida{canEdit ? "" : " (faqat direktor)"}. Bu yerda nomi va manzili.
+        Объектни очиш ва ёпиш — «Объектлар» саҳифасида{canEdit ? "" : " (фақат директор)"}. Бу ерда номи ва манзили.
       </p>
       <ReferenceEditor
         endpoint="/api/sites"
@@ -19,8 +19,8 @@ export default async function SitesRefPage() {
         showActive={false}
         emptyValues={{ name: "", address: "" }}
         fields={[
-          { key: "name", label: "Nomi", type: "text" },
-          { key: "address", label: "Manzil", type: "text" },
+          { key: "name", label: "Номи", type: "text" },
+          { key: "address", label: "Манзил", type: "text" },
         ]}
         rows={sites.map((s) => ({ id: s.id, isActive: true, values: { name: s.name, address: s.address ?? "" } }))}
       />

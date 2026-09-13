@@ -14,15 +14,15 @@ export default async function OylarPage() {
   return (
     <>
       <PageHeader
-        title="Oylar"
-        subtitle="Yopilgan oyga yozuv qo'shib, o'zgartirib yoki bekor qilib bo'lmaydi. Oyni faqat direktor yopadi."
+        title="Ойлар"
+        subtitle="Ёпилган ойга ёзув қўшиб, ўзгартириб ёки бекор қилиб бўлмайди. Бошлиқларга ҳисобот юборилгач ойни ёпиш тавсия этилади."
       />
       <table className="tbl max-w-[760px] border border-line">
         <thead>
           <tr>
-            <th>Oy</th>
-            <th className="num">Yozuvlar</th>
-            <th>Holati</th>
+            <th>Ой</th>
+            <th className="num">Ёзувлар</th>
+            <th>Ҳолати</th>
             <th />
           </tr>
         </thead>
@@ -38,10 +38,10 @@ export default async function OylarPage() {
               <td>
                 {p.closed ? (
                   <span className="text-ink-2">
-                    Yopilgan · {p.closedBy}, {p.closedAt && formatDateTime(p.closedAt)}
+                    Ёпилган · {p.closedBy}, {p.closedAt && formatDateTime(p.closedAt)}
                   </span>
                 ) : (
-                  <span className="text-plus">Ochiq</span>
+                  <span className="text-plus">Очиқ</span>
                 )}
               </td>
               <td className="text-right">

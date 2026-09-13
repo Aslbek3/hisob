@@ -12,7 +12,7 @@ export function CancelEntryButton({ id }: { id: number }) {
   if (!open) {
     return (
       <button className="btn btn-danger" onClick={() => setOpen(true)}>
-        Bekor qilish
+        Бекор қилиш
       </button>
     );
   }
@@ -25,12 +25,12 @@ export function CancelEntryButton({ id }: { id: number }) {
         if (await run(() => sendJson(`/api/entries/${id}/cancel`, "POST", { reason }))) setOpen(false);
       }}
     >
-      <input className="field w-[260px]" placeholder="Bekor qilish sababi" value={reason} onChange={(e) => setReason(e.target.value)} autoFocus />
+      <input className="field w-[260px]" placeholder="Бекор қилиш сабаби" value={reason} onChange={(e) => setReason(e.target.value)} autoFocus />
       <button className="btn btn-danger" disabled={pending || reason.trim().length < 3}>
-        Tasdiqlash
+        Тасдиқлаш
       </button>
       <button type="button" className="btn" onClick={() => setOpen(false)}>
-        Yo&apos;q
+        Йўқ
       </button>
       {error && <span className="text-minus text-[13px]">{error}</span>}
     </form>

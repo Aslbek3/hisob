@@ -1,24 +1,31 @@
-import type { AccountType, EntryKind, Role, SiteStatus } from "@prisma/client";
+import type { AccountType, CounterpartyKind, EntryKind, Role, SiteStatus } from "@prisma/client";
 
 export const ROLE_LABEL: Record<Role, string> = {
-  DIRECTOR: "Direktor",
-  ACCOUNTANT: "Buxgalter",
-  FOREMAN: "Prorab",
+  DIRECTOR: "Директор",
+  ACCOUNTANT: "Ҳисобчи",
+  FOREMAN: "Прораб",
 };
 
 export const KIND_LABEL: Record<EntryKind, string> = {
-  INCOME: "Kirim",
-  EXPENSE: "Chiqim",
-  TRANSFER: "O'tkazma",
+  INCOME: "Кирим",
+  EXPENSE: "Харажат",
+  TRANSFER: "Ўтказма",
+  SUPPLIER_PAYMENT: "Етказиб берувчига тўлов",
+  GOODS_RECEIPT: "Қарзга олинди",
 };
 
 export const ACCOUNT_TYPE_LABEL: Record<AccountType, string> = {
-  BANK: "Bank",
-  CASH: "Naqd kassa",
-  PERSONAL: "Shaxsiy",
+  BANK: "Банк (перечисления)",
+  CASH: "Нахт касса",
+  PERSONAL: "Шахсий",
 };
 
 export const SITE_STATUS_LABEL: Record<SiteStatus, string> = {
-  ACTIVE: "Faol",
-  ARCHIVED: "Arxivda",
+  ACTIVE: "Фаол",
+  ARCHIVED: "Ёпилган",
+};
+
+export const COUNTERPARTY_KIND_LABEL: Record<CounterpartyKind, string> = {
+  PAYER: "Пул берувчи (инвестор)",
+  SUPPLIER: "Етказиб берувчи",
 };

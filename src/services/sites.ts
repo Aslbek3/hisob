@@ -39,9 +39,11 @@ export async function listSites(user: SessionUser, opts: { monthsBack: number })
   });
 
   const sums = await prisma.$queryRaw<SiteMonthKind[]>`
-    SELECT site_id, date_trunc('month', date)::date AS month, kind, SUM(amount)::bigint AS total
+    SELECT site_id, date_trunc('month', date)::date AS month,
+      CASE WHEN kind = 'INCOME' THEN 'INCOME' ELSE 'EXPENSE' END AS kind,
+      SUM(amount)::bigint AS total
     FROM entries
-    WHERE status = 'ACTIVE' AND site_id IS NOT NULL AND kind IN ('INCOME', 'EXPENSE')
+    WHERE status = 'ACTIVE' AND site_id IS NOT NULL AND kind IN ('INCOME', 'EXPENSE', 'GOODS_RECEIPT')
     GROUP BY 1, 2, 3`;
 
   const months = lastMonths(opts.monthsBack);
@@ -75,13 +77,13 @@ export type SiteCard = {
 
 export async function getSiteCard(user: SessionUser, siteId: number): Promise<SiteCard> {
   const site = await prisma.site.findUnique({ where: { id: siteId } });
-  if (!site || !canViewSite(user, siteId)) throw notFound("Ob'ekt topilmadi");
+  if (!site || !canViewSite(user, siteId)) throw notFound("Объект топилмади");
 
   const [monthCat, monthIncome, materials] = await Promise.all([
     prisma.$queryRaw<{ month: Date; category_id: number; name: string; total: bigint }[]>`
       SELECT date_trunc('month', e.date)::date AS month, c.id AS category_id, c.name, SUM(e.amount)::bigint AS total
       FROM entries e JOIN categories c ON c.id = e.category_id
-      WHERE e.status = 'ACTIVE' AND e.kind = 'EXPENSE' AND e.site_id = ${siteId}
+      WHERE e.status = 'ACTIVE' AND e.kind IN ('EXPENSE', 'GOODS_RECEIPT') AND e.site_id = ${siteId}
       GROUP BY 1, 2, 3`,
     prisma.$queryRaw<{ month: Date; total: bigint }[]>`
       SELECT date_trunc('month', date)::date AS month, SUM(amount)::bigint AS total
@@ -90,7 +92,7 @@ export async function getSiteCard(user: SessionUser, siteId: number): Promise<Si
     prisma.$queryRaw<{ id: number; name: string; unit: string; quantity: string; total: bigint }[]>`
       SELECT m.id, m.name, m.unit, SUM(e.quantity)::text AS quantity, SUM(e.amount)::bigint AS total
       FROM entries e JOIN materials m ON m.id = e.material_id
-      WHERE e.status = 'ACTIVE' AND e.kind = 'EXPENSE' AND e.site_id = ${siteId}
+      WHERE e.status = 'ACTIVE' AND e.kind IN ('EXPENSE', 'GOODS_RECEIPT') AND e.site_id = ${siteId}
       GROUP BY m.id, m.name, m.unit ORDER BY total DESC`,
   ]);
 
@@ -146,7 +148,7 @@ export async function listSiteOptions() {
 
 export async function createSite(user: SessionUser, input: { name: string; address?: string | null }) {
   const name = cleanName(input.name);
-  if (!name) throw new ServiceError("Ob'ekt nomini kiriting", 400);
+  if (!name) throw new ServiceError("Объект номини ёзинг", 400);
   return prisma.$transaction(async (tx) => {
     const site = await tx.site.create({ data: { name, address: input.address?.trim() || null } });
     await writeAudit(tx, { userId: user.id, action: "CREATE", entityType: "Site", entityId: site.id, after: site });
@@ -156,10 +158,10 @@ export async function createSite(user: SessionUser, input: { name: string; addre
 
 export async function updateSite(user: SessionUser, id: number, input: { name: string; address?: string | null }) {
   const name = cleanName(input.name);
-  if (!name) throw new ServiceError("Ob'ekt nomini kiriting", 400);
+  if (!name) throw new ServiceError("Объект номини ёзинг", 400);
   return prisma.$transaction(async (tx) => {
     const before = await tx.site.findUnique({ where: { id } });
-    if (!before) throw notFound("Ob'ekt topilmadi");
+    if (!before) throw notFound("Объект топилмади");
     const after = await tx.site.update({ where: { id }, data: { name, address: input.address?.trim() || null } });
     await writeAudit(tx, { userId: user.id, action: "UPDATE", entityType: "Site", entityId: id, before, after });
     return after;
@@ -170,7 +172,7 @@ export async function updateSite(user: SessionUser, id: number, input: { name: s
 export async function setSiteStatus(user: SessionUser, id: number, status: SiteStatus) {
   return prisma.$transaction(async (tx) => {
     const before = await tx.site.findUnique({ where: { id } });
-    if (!before) throw notFound("Ob'ekt topilmadi");
+    if (!before) throw notFound("Объект топилмади");
     if (before.status === status) return before;
     const after = await tx.site.update({
       where: { id },

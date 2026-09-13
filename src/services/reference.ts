@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { prisma } from "@/lib/prisma";
+import { prisma, type Tx } from "@/lib/prisma";
 import { ServiceError, notFound } from "@/lib/errors";
 import { cleanName, nameKey } from "@/lib/normalize";
 import { parseSom } from "@/lib/money";
@@ -9,9 +9,9 @@ import type { SessionUser } from "@/types/auth";
 import { writeAudit } from "@/services/audit";
 
 /**
- * Spravochniklar: firma, hisob, kategoriya, material, kirim manbai.
- * Hech biri o'chirilmaydi — `isActive: false` (ro'yxatlarda ko'rinmaydi,
- * eski yozuvlarda nomi saqlanadi).
+ * Spravochniklar: firma, hisob, kategoriya, nom (material/xizmat), kontragent
+ * (pul beruvchi yoki yetkazib beruvchi). Hech biri o'chirilmaydi —
+ * `isActive: false` (ro'yxatlarda ko'rinmaydi, eski yozuvlarda nomi saqlanadi).
  */
 
 export const REFERENCE_TYPES = ["companies", "accounts", "categories", "materials", "counterparties"] as const;
@@ -21,8 +21,9 @@ export function isReferenceType(value: string): value is ReferenceType {
   return (REFERENCE_TYPES as readonly string[]).includes(value);
 }
 
-const name = z.string().transform(cleanName).pipe(z.string().min(1, "Nomini kiriting").max(120));
+const name = z.string().transform(cleanName).pipe(z.string().min(1, "Номини ёзинг").max(120));
 const isActive = z.boolean().optional();
+const optionalText = (max: number) => z.string().trim().max(max).nullable().optional().transform((v) => v || null);
 
 const schemas = {
   companies: z.object({ name, isActive }),
@@ -34,13 +35,18 @@ const schemas = {
     sortOrder: z.number().int().default(0),
     isActive,
   }),
-  categories: z.object({ name, isMaterial: z.boolean().default(false), sortOrder: z.number().int().default(0), isActive }),
-  materials: z.object({ name, unit: z.enum(UNIT_CODES, { message: "O'lchov birligini tanlang" }), isActive }),
+  categories: z.object({ name, sortOrder: z.number().int().default(0), isActive }),
+  materials: z.object({
+    name,
+    unit: z.enum(UNIT_CODES, { message: "Ўлчов бирлигини танланг" }),
+    categoryId: z.number({ message: "Категорияни танланг" }).int().positive({ message: "Категорияни танланг" }),
+    isActive,
+  }),
   counterparties: z.object({
     name,
-    kind: z.enum(["PAYER"]).default("PAYER"),
-    phone: z.string().trim().max(30).nullable().optional().transform((v) => v || null),
-    note: z.string().trim().max(300).nullable().optional().transform((v) => v || null),
+    kind: z.enum(["PAYER", "SUPPLIER"]).default("PAYER"),
+    phone: optionalText(30),
+    note: optionalText(300),
     isActive,
   }),
 };
@@ -58,8 +64,16 @@ function parseSignedSom(input: string): bigint {
   const trimmed = input.trim();
   const negative = /^[-−]/.test(trimmed);
   const value = parseSom(negative ? trimmed.slice(1) : trimmed);
-  if (value === null) throw new ServiceError("Boshlang'ich qoldiq noto'g'ri — faqat butun so'm", 400);
+  if (value === null) throw new ServiceError("Бошланғич қолдиқ нотўғри — фақат бутун сўм", 400);
   return negative ? -value : value;
+}
+
+/** Bir xil nomdagi kontragent (shu turdagi) allaqachon bormi — kalit bo'yicha. */
+async function assertCounterpartyUnique(tx: Tx, kind: "PAYER" | "SUPPLIER", title: string, id: number | null) {
+  const key = nameKey(title);
+  const same = await tx.counterparty.findMany({ where: { kind, ...(id ? { id: { not: id } } : {}) }, select: { name: true, isActive: true } });
+  const clash = same.find((c) => nameKey(c.name) === key);
+  if (clash) throw new ServiceError(`«${clash.name}» аллақачон бор${clash.isActive ? "" : " (ўчирилган — уни қайта ёқинг)"}`, 409);
 }
 
 /** Yangi yozuv yaratish (id = null) yoki mavjudini tahrirlash. */
@@ -84,14 +98,14 @@ export async function saveReference(user: SessionUser, type: ReferenceType, id: 
       case "accounts": {
         const { openingBalance, ...rest } = schemas.accounts.parse(raw);
         const opening = parseSignedSom(openingBalance);
-        if (rest.type !== "PERSONAL" && !rest.companyId) throw new ServiceError("Bank va kassa hisobi uchun firmani tanlang", 400);
+        if (rest.type !== "PERSONAL" && !rest.companyId) throw new ServiceError("Банк ва касса ҳисоби учун фирмани танланг", 400);
         if (id) {
           const prev = await tx.account.findUnique({ where: { id } });
           if (!prev) throw notFound();
           before = prev;
           if (prev.openingBalance !== opening) {
             const used = await tx.entry.count({ where: { OR: [{ accountId: id }, { toAccountId: id }] } });
-            if (used > 0) throw new ServiceError("Hisobda yozuvlar bor — boshlang'ich qoldiqni endi o'zgartirib bo'lmaydi", 409);
+            if (used > 0) throw new ServiceError("Ҳисобда ёзувлар бор — бошланғич қолдиқни энди ўзгартириб бўлмайди", 409);
           }
           after = await tx.account.update({ where: { id }, data: { ...rest, openingBalance: opening } });
         } else {
@@ -102,17 +116,12 @@ export async function saveReference(user: SessionUser, type: ReferenceType, id: 
 
       case "categories": {
         const data = schemas.categories.parse(raw);
-        const clash = await tx.category.findFirst({
-          where: { name: { equals: data.name, mode: "insensitive" }, ...(id ? { id: { not: id } } : {}) },
-        });
-        if (clash) throw new ServiceError(`"${clash.name}" kategoriyasi allaqachon bor`, 409);
+        const all = await tx.category.findMany({ where: id ? { id: { not: id } } : {}, select: { name: true } });
+        const clash = all.find((c) => nameKey(c.name) === nameKey(data.name));
+        if (clash) throw new ServiceError(`«${clash.name}» категорияси аллақачон бор`, 409);
         if (id) {
-          const prev = await tx.category.findUnique({ where: { id } });
-          if (!prev) throw notFound();
-          before = prev;
-          if (prev.isMaterial !== data.isMaterial && (await tx.entry.count({ where: { categoryId: id } })) > 0) {
-            throw new ServiceError("Kategoriyada yozuvlar bor — \"material\" belgisini o'zgartirib bo'lmaydi", 409);
-          }
+          before = await tx.category.findUnique({ where: { id } });
+          if (!before) throw notFound();
           after = await tx.category.update({ where: { id }, data });
         } else {
           after = await tx.category.create({ data });
@@ -126,18 +135,23 @@ export async function saveReference(user: SessionUser, type: ReferenceType, id: 
         const clash = await tx.material.findUnique({ where: { nameKey: key } });
         if (clash && clash.id !== id) {
           throw new ServiceError(
-            `"${clash.name}" allaqachon bor${clash.isActive ? "" : " (o'chirilgan — uni qayta yoqing)"}. Ikkinchi marta qo'shilmaydi.`,
+            `«${clash.name}» аллақачон бор${clash.isActive ? "" : " (ўчирилган — уни қайта ёқинг)"}. Иккинчи марта қўшилмайди.`,
             409
           );
         }
+        if (!(await tx.category.findUnique({ where: { id: data.categoryId } }))) throw new ServiceError("Категория топилмади", 400);
         if (id) {
           const prev = await tx.material.findUnique({ where: { id } });
           if (!prev) throw notFound();
           before = prev;
           if (prev.unit !== data.unit && (await tx.entry.count({ where: { materialId: id } })) > 0) {
-            throw new ServiceError("Materialda yozuvlar bor — o'lchov birligini o'zgartirib bo'lmaydi (eski miqdorlar noto'g'ri bo'lib qoladi)", 409);
+            throw new ServiceError("Бу ном ёзувларда ишлатилган — ўлчов бирлигини ўзгартириб бўлмайди (эски миқдорлар нотўғри бўлиб қолади)", 409);
           }
           after = await tx.material.update({ where: { id }, data: { ...data, nameKey: key } });
+          // Kategoriya o'zgarsa — ochiq yozuvlar ham yangilanadi (hisobot bir xil bo'lsin)
+          if (prev.categoryId !== data.categoryId) {
+            await tx.entry.updateMany({ where: { materialId: id }, data: { categoryId: data.categoryId } });
+          }
         } else {
           after = await tx.material.create({ data: { ...data, nameKey: key } });
         }
@@ -146,9 +160,14 @@ export async function saveReference(user: SessionUser, type: ReferenceType, id: 
 
       case "counterparties": {
         const data = schemas.counterparties.parse(raw);
+        await assertCounterpartyUnique(tx, data.kind, data.name, id);
         if (id) {
-          before = await tx.counterparty.findUnique({ where: { id } });
-          if (!before) throw notFound();
+          const prev = await tx.counterparty.findUnique({ where: { id } });
+          if (!prev) throw notFound();
+          before = prev;
+          if (prev.kind !== data.kind && (await tx.entry.count({ where: { counterpartyId: id } })) > 0) {
+            throw new ServiceError("Ёзувлари бор контрагентнинг турини ўзгартириб бўлмайди", 409);
+          }
           after = await tx.counterparty.update({ where: { id }, data });
         } else {
           after = await tx.counterparty.create({ data });
@@ -157,7 +176,7 @@ export async function saveReference(user: SessionUser, type: ReferenceType, id: 
       }
     }
 
-    const saved = after as { id: number };
+    const saved = after as { id: number; name: string };
     await writeAudit(tx, {
       userId: user.id,
       action: id ? "UPDATE" : "CREATE",
@@ -184,58 +203,77 @@ export async function listAccounts() {
 }
 
 export async function listCategories() {
-  return prisma.category.findMany({ orderBy: [{ sortOrder: "asc" }, { name: "asc" }], include: { _count: { select: { entries: true } } } });
+  return prisma.category.findMany({
+    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+    include: { _count: { select: { entries: true, items: true } } },
+  });
 }
 
 export async function listMaterials() {
-  return prisma.material.findMany({ orderBy: { name: "asc" }, include: { _count: { select: { entries: true } } } });
+  return prisma.material.findMany({
+    orderBy: { name: "asc" },
+    include: { category: { select: { name: true } }, _count: { select: { entries: true } } },
+  });
 }
 
-export async function listCounterparties() {
-  return prisma.counterparty.findMany({ orderBy: { name: "asc" }, include: { _count: { select: { entries: true } } } });
+export async function listCounterparties(kind: "PAYER" | "SUPPLIER") {
+  return prisma.counterparty.findMany({ where: { kind }, orderBy: { name: "asc" }, include: { _count: { select: { entries: true } } } });
 }
 
-// ───────────────────────────── Kiritish ekrani uchun tanlovlar ─────────────────────────────
+// ───────────────────────────── Kunlik daftar uchun tanlovlar ─────────────────────────────
 
 export type Option = { id: number; name: string };
+export type ItemOption = Option & { unit: string; categoryId: number | null };
 export type EntryOptions = {
   sites: Option[];
   accounts: Option[];
-  categories: (Option & { isMaterial: boolean })[];
-  materials: (Option & { unit: string })[];
-  counterparties: Option[];
+  categories: Option[];
+  items: ItemOption[];
+  suppliers: Option[];
+  payers: Option[];
 };
 
-/** Faqat faol qiymatlar. Prorab faqat o'z ob'ektlarini ko'radi. */
+/** Faqat faol qiymatlar. Prorab faqat o'z ob'ektlarini ko'radi, pul beruvchilarni ko'rmaydi. */
 export async function getEntryOptions(user: SessionUser): Promise<EntryOptions> {
-  const [sites, accounts, categories, materials, counterparties] = await Promise.all([
+  const office = isOffice(user);
+  const [sites, accounts, categories, items, counterparties] = await Promise.all([
     prisma.site.findMany({
-      where: { status: "ACTIVE", ...(isOffice(user) ? {} : { id: { in: user.siteIds } }) },
+      where: { status: "ACTIVE", ...(office ? {} : { id: { in: user.siteIds } }) },
       orderBy: { name: "asc" },
       select: { id: true, name: true },
     }),
     prisma.account.findMany({ where: { isActive: true }, orderBy: [{ sortOrder: "asc" }, { id: "asc" }], select: { id: true, name: true } }),
-    prisma.category.findMany({
+    prisma.category.findMany({ where: { isActive: true }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }], select: { id: true, name: true } }),
+    prisma.material.findMany({
       where: { isActive: true },
-      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
-      select: { id: true, name: true, isMaterial: true },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, unit: true, categoryId: true },
     }),
-    prisma.material.findMany({ where: { isActive: true }, orderBy: { name: "asc" }, select: { id: true, name: true, unit: true } }),
-    isOffice(user)
-      ? prisma.counterparty.findMany({ where: { isActive: true }, orderBy: { name: "asc" }, select: { id: true, name: true } })
-      : Promise.resolve([]),
+    prisma.counterparty.findMany({
+      where: { isActive: true, ...(office ? {} : { kind: "SUPPLIER" }) },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, kind: true },
+    }),
   ]);
-  return { sites, accounts, categories, materials, counterparties };
+  return {
+    sites,
+    accounts,
+    categories,
+    items,
+    suppliers: counterparties.filter((c) => c.kind === "SUPPLIER").map(({ id, name }) => ({ id, name })),
+    payers: counterparties.filter((c) => c.kind === "PAYER").map(({ id, name }) => ({ id, name })),
+  };
 }
 
 /** Jurnal filtrlari uchun — o'chirilganlar ham (eski yozuvlarni topish uchun). */
 export async function getFilterOptions(user: SessionUser) {
   const office = isOffice(user);
-  const [sites, accounts, categories, users] = await Promise.all([
+  const [sites, accounts, categories, users, counterparties] = await Promise.all([
     prisma.site.findMany({ where: office ? {} : { id: { in: user.siteIds } }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
     office ? prisma.account.findMany({ orderBy: [{ sortOrder: "asc" }, { id: "asc" }], select: { id: true, name: true } }) : Promise.resolve([]),
     prisma.category.findMany({ orderBy: [{ sortOrder: "asc" }, { name: "asc" }], select: { id: true, name: true } }),
     office ? prisma.user.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }) : Promise.resolve([]),
+    prisma.counterparty.findMany({ where: office ? {} : { kind: "SUPPLIER" }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
   ]);
-  return { sites, accounts, categories, users };
+  return { sites, accounts, categories, users, counterparties };
 }

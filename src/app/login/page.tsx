@@ -9,8 +9,8 @@ export default async function LoginPage() {
   return (
     <main className="min-h-screen grid place-items-center px-4">
       <div className="w-full max-w-[340px]">
-        <h1 className="text-lg font-semibold mb-1">Hisob</h1>
-        <p className="text-ink-3 mb-6">Qurilish kirim-chiqim tizimi</p>
+        <h1 className="text-[22px] font-semibold mb-1">Ҳисоб</h1>
+        <p className="text-ink-3 mb-6">Қурилиш кирим-чиқим дафтари</p>
         <LoginForm />
       </div>
     </main>

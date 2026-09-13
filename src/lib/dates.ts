@@ -9,8 +9,8 @@
 const TZ = "Asia/Tashkent";
 
 const MONTHS = [
-  "Yanvar", "Fevral", "Mart", "Aprel", "May", "Iyun",
-  "Iyul", "Avgust", "Sentabr", "Oktabr", "Noyabr", "Dekabr",
+  "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
+  "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь",
 ];
 
 /** Toshkent vaqti bo'yicha bugungi sana: "2026-09-13". */
@@ -71,12 +71,12 @@ export function formatDate(iso: string): string {
   return `${iso.slice(8, 10)}.${iso.slice(5, 7)}.${iso.slice(0, 4)}`;
 }
 
-/** "2026-09-01" → "Sentabr 2026" */
+/** "2026-09-01" → "Сентябрь 2026" */
 export function formatMonth(iso: string): string {
   return `${MONTHS[Number(iso.slice(5, 7)) - 1]} ${iso.slice(0, 4)}`;
 }
 
-/** "2026-09-01" → "Sen 2026" — tor jadval ustunlari uchun */
+/** "2026-09-01" → "Сен 26" — tor jadval ustunlari uchun */
 export function formatMonthShort(iso: string): string {
   return `${MONTHS[Number(iso.slice(5, 7)) - 1].slice(0, 3)} ${iso.slice(2, 4)}`;
 }

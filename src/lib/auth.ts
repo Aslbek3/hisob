@@ -34,9 +34,9 @@ export async function getSessionUser(): Promise<SessionUser | null> {
   return getUserByToken(token);
 }
 
-/** Rolga qarab bosh sahifa. */
-export function homeFor(user: SessionUser): string {
-  return user.role === "FOREMAN" ? "/kiritish" : "/obyektlar";
+/** Bosh sahifa — hamma uchun kunlik daftar (asosiy ish shu yerda). */
+export function homeFor(_user: SessionUser): string {
+  return "/kiritish";
 }
 
 /**

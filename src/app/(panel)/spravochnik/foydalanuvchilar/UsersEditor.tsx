@@ -8,7 +8,7 @@ import { sendJson, useServerMutation } from "@/lib/useServerMutation";
 type UserRow = { id: number; name: string; login: string; role: Role; isActive: boolean; siteIds: number[]; siteNames: string[] };
 type Draft = { name: string; login: string; role: Role; isActive: boolean; siteIds: number[]; password: string };
 
-const EMPTY: Draft = { name: "", login: "", role: "FOREMAN", isActive: true, siteIds: [], password: "" };
+const EMPTY: Draft = { name: "", login: "", role: "ACCOUNTANT", isActive: true, siteIds: [], password: "" };
 
 export function UsersEditor({
   users,
@@ -51,15 +51,15 @@ export function UsersEditor({
     <div className="flex flex-wrap gap-6 items-start">
       <div className="flex-1 min-w-[520px]">
         <button className="btn mb-2" onClick={() => start("new")}>
-          + Foydalanuvchi
+          + Фойдаланувчи
         </button>
         <table className="tbl border border-line">
           <thead>
             <tr>
-              <th>Ism</th>
-              <th>Login</th>
-              <th>Rol</th>
-              <th>Ob&apos;ektlari</th>
+              <th>Исм</th>
+              <th>Логин</th>
+              <th>Рол</th>
+              <th>Объектлари</th>
               <th />
             </tr>
           </thead>
@@ -68,14 +68,14 @@ export function UsersEditor({
               <tr key={u.id} className={u.isActive ? "" : "text-ink-3"}>
                 <td>
                   {u.name}
-                  {!u.isActive && <span className="ml-2 text-[12px]">bloklangan</span>}
+                  {!u.isActive && <span className="ml-2 text-[12px]">блокланган</span>}
                 </td>
                 <td className="font-mono text-[13px]">{u.login}</td>
                 <td>{ROLE_LABEL[u.role]}</td>
-                <td className="text-[13px]">{u.role === "FOREMAN" ? u.siteNames.join(", ") || "—" : "hammasi"}</td>
+                <td className="text-[13px]">{u.role === "FOREMAN" ? u.siteNames.join(", ") || "—" : "ҳаммаси"}</td>
                 <td className="text-right">
                   <button className="link text-[13px]" onClick={() => start(u.id)}>
-                    Tahrirlash
+                    Таҳрирлаш
                   </button>
                 </td>
               </tr>
@@ -92,11 +92,11 @@ export function UsersEditor({
             void save();
           }}
         >
-          <h2 className="font-semibold">{editing === "new" ? "Yangi foydalanuvchi" : "Tahrirlash"}</h2>
-          <Labeled label="Ism">
+          <h2 className="font-semibold">{editing === "new" ? "Янги фойдаланувчи" : "Таҳрирлаш"}</h2>
+          <Labeled label="Исм">
             <input className="field w-full" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} required autoFocus />
           </Labeled>
-          <Labeled label="Login">
+          <Labeled label="Логин (лотинча)">
             <input
               className="field w-full font-mono"
               value={draft.login}
@@ -105,7 +105,7 @@ export function UsersEditor({
               required
             />
           </Labeled>
-          <Labeled label="Rol">
+          <Labeled label="Рол">
             <select className="field w-full" value={draft.role} disabled={self} onChange={(e) => setDraft({ ...draft, role: e.target.value as Role })}>
               {Object.entries(ROLE_LABEL).map(([v, l]) => (
                 <option key={v} value={v}>
@@ -116,7 +116,7 @@ export function UsersEditor({
           </Labeled>
           {draft.role === "FOREMAN" && (
             <fieldset>
-              <legend className="text-[12px] text-ink-3 mb-1">Biriktirilgan ob&apos;ektlar</legend>
+              <legend className="text-[12px] text-ink-3 mb-1">Бириктирилган объектлар</legend>
               <div className="flex flex-col gap-1 max-h-[180px] overflow-auto">
                 {sites.map((s) => (
                   <label key={s.id} className="flex items-center gap-2">
@@ -131,13 +131,13 @@ export function UsersEditor({
                       }
                     />
                     {s.name}
-                    {s.status === "ARCHIVED" && <span className="text-ink-3 text-[12px]">arxiv</span>}
+                    {s.status === "ARCHIVED" && <span className="text-ink-3 text-[12px]">ёпилган</span>}
                   </label>
                 ))}
               </div>
             </fieldset>
           )}
-          <Labeled label={editing === "new" ? "Parol (kamida 8 belgi)" : "Yangi parol (bo'sh — o'zgarmaydi)"}>
+          <Labeled label={editing === "new" ? "Парол (камида 8 белги)" : "Янги парол (бўш — ўзгармайди)"}>
             <input
               className="field w-full"
               type="text"
@@ -150,16 +150,16 @@ export function UsersEditor({
           {editing !== "new" && !self && (
             <label className="flex items-center gap-2">
               <input type="checkbox" checked={!draft.isActive} onChange={(e) => setDraft({ ...draft, isActive: !e.target.checked })} />
-              Bloklangan (kira olmaydi, ochiq sessiyalari yopiladi)
+              Блокланган (кира олмайди)
             </label>
           )}
           {error && <p className="text-minus text-[13px]">{error}</p>}
           <div className="flex gap-2">
             <button className="btn btn-primary" disabled={pending}>
-              Saqlash
+              Сақлаш
             </button>
             <button type="button" className="btn" onClick={() => setEditing(null)}>
-              Bekor
+              Бекор
             </button>
           </div>
         </form>

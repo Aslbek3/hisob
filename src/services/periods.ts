@@ -12,12 +12,12 @@ import { writeAudit } from "@/services/audit";
  */
 export async function assertDateWritable(tx: Tx, dateIso: string) {
   if (dateIso > todayIso()) {
-    throw new ServiceError("Kelajak sanasiga yozuv kiritib bo'lmaydi", 400, "FUTURE_DATE");
+    throw new ServiceError("Келажак санасига ёзув киритиб бўлмайди", 400, "FUTURE_DATE");
   }
   const month = monthStartIso(dateIso);
   const closed = await tx.closedPeriod.findUnique({ where: { month: isoToDbDate(month) } });
   if (closed) {
-    throw new ServiceError(`${formatMonth(month)} yopilgan — bu oyga yozuv qo'shib yoki o'zgartirib bo'lmaydi`, 409, "PERIOD_CLOSED");
+    throw new ServiceError(`${formatMonth(month)} ёпилган — бу ойга ёзув қўшиб ёки ўзгартириб бўлмайди`, 409, "PERIOD_CLOSED");
   }
 }
 
@@ -69,11 +69,11 @@ export async function listPeriods(): Promise<PeriodRow[]> {
 export async function closeMonth(user: SessionUser, monthIso: string) {
   const month = monthStartIso(monthIso);
   if (month >= monthStartIso(todayIso())) {
-    throw new ServiceError("Faqat tugagan oyni yopish mumkin", 400);
+    throw new ServiceError("Фақат тугаган ойни ёпиш мумкин", 400);
   }
   await prisma.$transaction(async (tx) => {
     const exists = await tx.closedPeriod.findUnique({ where: { month: isoToDbDate(month) } });
-    if (exists) throw new ServiceError(`${formatMonth(month)} allaqachon yopilgan`, 409);
+    if (exists) throw new ServiceError(`${formatMonth(month)} аллақачон ёпилган`, 409);
     await tx.closedPeriod.create({ data: { month: isoToDbDate(month), closedById: user.id } });
     await writeAudit(tx, { userId: user.id, action: "CLOSE_MONTH", entityType: "Period", entityId: month });
   });
@@ -84,7 +84,7 @@ export async function reopenMonth(user: SessionUser, monthIso: string, reason: s
   const month = monthStartIso(monthIso);
   await prisma.$transaction(async (tx) => {
     const row = await tx.closedPeriod.findUnique({ where: { month: isoToDbDate(month) } });
-    if (!row) throw new ServiceError(`${formatMonth(month)} yopilmagan`, 409);
+    if (!row) throw new ServiceError(`${formatMonth(month)} ёпилмаган`, 409);
     await tx.closedPeriod.delete({ where: { month: isoToDbDate(month) } });
     await writeAudit(tx, {
       userId: user.id,

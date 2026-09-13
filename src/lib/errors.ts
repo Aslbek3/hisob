@@ -14,5 +14,5 @@ export class ServiceError extends Error {
   }
 }
 
-export const forbidden = (message = "Bu amal uchun ruxsat yo'q") => new ServiceError(message, 403, "FORBIDDEN");
-export const notFound = (message = "Topilmadi") => new ServiceError(message, 404, "NOT_FOUND");
+export const forbidden = (message = "Бу амал учун рухсат йўқ") => new ServiceError(message, 403, "FORBIDDEN");
+export const notFound = (message = "Топилмади") => new ServiceError(message, 404, "NOT_FOUND");

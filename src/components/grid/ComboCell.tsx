@@ -16,13 +16,17 @@ type Props = {
   /** Ro'yxatdan Enter bilan tanlangach keyingi katakka o'tish. */
   onPickedWithEnter: () => void;
   inputRef: (el: HTMLInputElement | null) => void;
+  /** Berilsa — ro'yxatda yo'q matn uchun "+ Янги: «...»" varianti chiqadi. */
+  onCreate?: (text: string) => void;
+  createLabel?: string;
   invalid?: boolean;
 };
 
 /**
- * Jadval katagidagi tanlov: yozish → ro'yxat filtrlanadi → Enter/Tab bilan
- * tanlanadi. Ro'yxatda yo'q qiymat QABUL QILINMAYDI (qo'lda yozilgan "sement"
- * variantlari paydo bo'lmasligi uchun) — katakdan chiqilganda eski qiymat qaytadi.
+ * Jadval katagidagi tanlov: yozish → ro'yxat filtrlanadi → Enter/Tab yoki
+ * sichqoncha bilan tanlanadi. Ro'yxatda yo'q matn QABUL QILINMAYDI (bitta
+ * narsaning har xil yozilishi paydo bo'lmasligi uchun) — katakdan chiqilganda
+ * eski qiymat qaytadi. Yangi nom faqat `onCreate` orqali (tasdiqlash oynasi bilan).
  */
 export function ComboCell(p: Props) {
   const selected = p.options.find((o) => o.id === p.value) ?? null;
@@ -33,18 +37,22 @@ export function ComboCell(p: Props) {
   const localRef = useRef<HTMLInputElement | null>(null);
   const listRef = useRef<HTMLUListElement | null>(null);
 
+  const query = nameKey(text ?? "");
   const matches = useMemo(() => {
-    const q = nameKey(text ?? "");
-    if (!q) return p.options.slice(0, 60);
+    if (!query) return p.options.slice(0, 80);
     const starts: ComboOption[] = [];
     const contains: ComboOption[] = [];
     for (const o of p.options) {
       const k = nameKey(o.name);
-      if (k.startsWith(q)) starts.push(o);
-      else if (k.includes(q)) contains.push(o);
+      if (k.startsWith(query)) starts.push(o);
+      else if (k.includes(query)) contains.push(o);
     }
-    return [...starts, ...contains].slice(0, 60);
-  }, [text, p.options]);
+    return [...starts, ...contains].slice(0, 80);
+  }, [query, p.options]);
+
+  const exact = matches.some((o) => nameKey(o.name) === query);
+  const canCreate = !!p.onCreate && !!query && !exact;
+  const total = matches.length + (canCreate ? 1 : 0);
 
   // Ro'yxat fixed joylashgan — sahifa aylantirilsa joyi yangilanadi
   useEffect(() => {
@@ -74,11 +82,27 @@ export function ComboCell(p: Props) {
     setOpen(false);
   }
 
+  function create() {
+    const t = (text ?? "").trim();
+    setText(null);
+    setOpen(false);
+    if (t) p.onCreate?.(t);
+  }
+
+  function pick(index: number, withEnter: boolean) {
+    if (index < matches.length) {
+      choose(matches[index]);
+      if (withEnter) p.onPickedWithEnter();
+    } else if (canCreate) {
+      create();
+    }
+  }
+
   function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (open) {
       if (e.key === "ArrowDown") {
         e.preventDefault();
-        setHi((h) => Math.min(h + 1, matches.length - 1));
+        setHi((h) => Math.min(h + 1, total - 1));
         return;
       }
       if (e.key === "ArrowUp") {
@@ -88,17 +112,12 @@ export function ComboCell(p: Props) {
       }
       if (e.key === "Enter") {
         e.preventDefault();
-        const o = matches[hi];
-        if (o) {
-          choose(o);
-          p.onPickedWithEnter();
-        }
+        if (total > 0) pick(hi, true);
         return;
       }
       if (e.key === "Tab") {
         // Tanlab, brauzerning o'z Tab'i keyingi katakka o'tkazadi
-        const o = matches[hi];
-        if (o && text) choose(o);
+        if (text && hi < matches.length) choose(matches[hi]);
         else setOpen(false);
         return;
       }
@@ -125,11 +144,10 @@ export function ComboCell(p: Props) {
       setOpen(false);
       return;
     }
-    const q = nameKey(text);
-    if (!q) choose(null);
+    if (!query) choose(null);
     else {
-      const exact = p.options.find((o) => nameKey(o.name) === q);
-      if (exact) choose(exact);
+      const found = p.options.find((o) => nameKey(o.name) === query);
+      if (found) choose(found);
       else {
         // Ro'yxatda yo'q — eski qiymat qaytadi
         setText(null);
@@ -155,6 +173,7 @@ export function ComboCell(p: Props) {
           else setHi(0);
         }}
         onFocus={(e) => e.target.select()}
+        onDoubleClick={() => !open && openList()}
         onKeyDown={onKeyDown}
         onBlur={onBlur}
         autoComplete="off"
@@ -163,15 +182,15 @@ export function ComboCell(p: Props) {
       {open && rect && (
         <ul
           ref={listRef}
-          className="fixed z-50 max-h-[260px] overflow-auto bg-paper border border-line shadow-md text-[13px]"
-          style={{ top: rect.bottom + 1, left: rect.left, minWidth: Math.max(rect.width, 220) }}
+          className="fixed z-50 max-h-[320px] overflow-auto bg-paper border border-line shadow-lg"
+          style={{ top: rect.bottom + 1, left: rect.left, minWidth: Math.max(rect.width, 260) }}
         >
-          {matches.length === 0 && <li className="px-2 py-1.5 text-ink-3">Ro&apos;yxatda yo&apos;q — spravochnikka qo&apos;shing</li>}
+          {matches.length === 0 && !canCreate && <li className="px-3 py-2 text-ink-3">Рўйхатда йўқ</li>}
           {matches.map((o, i) => (
             <li
               key={o.id}
               data-i={i}
-              className={`px-2 py-1 cursor-pointer flex justify-between gap-3 ${i === hi ? "bg-accent-soft" : ""}`}
+              className={`px-3 py-1.5 cursor-pointer flex justify-between gap-4 ${i === hi ? "bg-accent-soft" : ""}`}
               onMouseDown={(e) => {
                 e.preventDefault(); // blur bo'lmasin
                 choose(o);
@@ -182,6 +201,19 @@ export function ComboCell(p: Props) {
               {o.hint && <span className="text-ink-3">{o.hint}</span>}
             </li>
           ))}
+          {canCreate && (
+            <li
+              data-i={matches.length}
+              className={`px-3 py-1.5 cursor-pointer text-accent border-t border-line ${hi === matches.length ? "bg-accent-soft" : ""}`}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                create();
+              }}
+              onMouseEnter={() => setHi(matches.length)}
+            >
+              + {p.createLabel ?? "Янги"}: «{(text ?? "").trim()}»
+            </li>
+          )}
         </ul>
       )}
     </>

@@ -1,24 +1,19 @@
 import { z } from "zod";
 import { jsonResponse, readBody, withUser } from "@/lib/api";
 import { canUseEntryScreen, canViewJournal } from "@/lib/permissions";
-import { createEntry, entryInputSchema, listEntriesForGrid } from "@/services/entries";
+import { createEntry, entryInputSchema, getDay } from "@/services/entries";
 
 /**
- * GET — Kiritish jadvali uchun: ?kind=EXPENSE&date=2026-09-13&siteId=1&accountId=2
+ * GET — Kunlik daftar uchun: ?siteId=1&date=2026-09-13 → { expenses, incomes }
  * (jurnal sahifasi serverda chiziladi, unga API kerak emas).
  */
 export async function GET(request: Request) {
   return withUser(request, canViewJournal, async (user) => {
     const p = new URL(request.url).searchParams;
-    const header = z
-      .object({
-        kind: z.enum(["INCOME", "EXPENSE", "TRANSFER"]),
-        date: z.string(),
-        siteId: z.coerce.number().int().positive().nullable().catch(null),
-        accountId: z.coerce.number().int().positive(),
-      })
-      .parse({ kind: p.get("kind"), date: p.get("date"), siteId: p.get("siteId"), accountId: p.get("accountId") });
-    return jsonResponse({ rows: await listEntriesForGrid(user, header) });
+    const q = z
+      .object({ siteId: z.coerce.number().int().positive(), date: z.string() })
+      .parse({ siteId: p.get("siteId"), date: p.get("date") });
+    return jsonResponse(await getDay(user, q.siteId, q.date));
   });
 }
 

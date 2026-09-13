@@ -46,11 +46,11 @@ export function useServerMutation() {
       const res = await request();
       if (!res.ok) {
         const data = await res.json().catch(() => null);
-        setError(data?.error ?? "Xatolik yuz berdi");
+        setError(data?.error ?? "Хатолик юз берди");
         return false;
       }
     } catch {
-      setError("Tarmoq xatosi — qayta urinib ko'ring");
+      setError("Тармоқ хатоси — қайта уриниб кўринг");
       return false;
     } finally {
       setSending(false);

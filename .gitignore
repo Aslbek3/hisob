@@ -10,3 +10,9 @@ next-env.d.ts
 uploads/
 backups/
 logs/
+
+# Firmaning haqiqiy Excel fayllari — repo OCHIQ, hech qachon commit qilinmasin
+*.xlsx
+*.xls
+*.xlsm
+*.csv

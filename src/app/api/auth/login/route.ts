@@ -10,22 +10,22 @@ const schema = z.object({ login: z.string().trim().min(1).max(64), password: z.s
 // Ochiq route (sessiyasiz) — ruxsat tekshiruvi o'rniga urinishlar cheklovi.
 export async function POST(request: Request) {
   const parsed = schema.safeParse(await request.json().catch(() => null));
-  if (!parsed.success) return errorResponse("Login va parolni kiriting", 400);
+  if (!parsed.success) return errorResponse("Логин ва паролни ёзинг", 400);
   const { login: loginName, password } = parsed.data;
 
   if (!allowLoginAttempt(getClientIp(request), loginName)) {
-    return errorResponse("Urinishlar juda ko'p. 15 daqiqadan keyin qayta urinib ko'ring.", 429);
+    return errorResponse("Уринишлар жуда кўп. 15 дақиқадан кейин қайта уриниб кўринг.", 429);
   }
 
   try {
     const result = await login(loginName, password);
-    if (!result) return errorResponse("Login yoki parol noto'g'ri", 401);
+    if (!result) return errorResponse("Логин ёки парол нотўғри", 401);
     resetLoginAttempts(loginName);
     await setSessionCookie(result.token);
     if (Math.random() < 0.1) void purgeExpiredSessions().catch(() => {});
     return jsonResponse({ role: result.user.role });
   } catch (error) {
     logError(error, { path: "/api/auth/login" });
-    return errorResponse("Serverda xatolik", 500);
+    return errorResponse("Серверда хатолик", 500);
   }
 }

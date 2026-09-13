@@ -19,14 +19,14 @@ export function LoginForm() {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => null);
-        setError(data?.error ?? "Kirib bo'lmadi");
+        setError(data?.error ?? "Кириб бўлмади");
         setPending(false);
         return;
       }
       // To'liq qayta yuklash — server komponentlar yangi sessiya bilan chizilsin
       window.location.href = "/";
     } catch {
-      setError("Tarmoq xatosi — qayta urinib ko'ring");
+      setError("Тармоқ хатоси — қайта уриниб кўринг");
       setPending(false);
     }
   }
@@ -34,16 +34,16 @@ export function LoginForm() {
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-3">
       <label className="flex flex-col gap-1">
-        <span className="text-ink-2 text-[13px]">Login</span>
+        <span className="text-ink-2">Логин</span>
         <input name="login" className="field" autoComplete="username" autoFocus required />
       </label>
       <label className="flex flex-col gap-1">
-        <span className="text-ink-2 text-[13px]">Parol</span>
+        <span className="text-ink-2">Парол</span>
         <input name="password" type="password" className="field" autoComplete="current-password" required />
       </label>
       {error && <p className="text-minus text-[13px]">{error}</p>}
       <button className="btn btn-primary justify-center mt-2" disabled={pending}>
-        {pending ? "Tekshirilmoqda…" : "Kirish"}
+        {pending ? "Текширилмоқда…" : "Кириш"}
       </button>
     </form>
   );

@@ -12,7 +12,7 @@ export function NewSiteForm() {
     return (
       <div className="mb-3">
         <button className="btn" onClick={() => setOpen(true)}>
-          + Yangi ob&apos;ekt
+          + Янги объект
         </button>
       </div>
     );
@@ -27,13 +27,13 @@ export function NewSiteForm() {
 
   return (
     <form onSubmit={onSubmit} className="mb-3 flex flex-wrap items-center gap-2 bg-paper border border-line px-3 py-2">
-      <input name="name" className="field w-[240px]" placeholder="Ob'ekt nomi" autoFocus required />
-      <input name="address" className="field w-[280px]" placeholder="Manzil (ixtiyoriy)" />
+      <input name="name" className="field w-[240px]" placeholder="Объект номи" autoFocus required />
+      <input name="address" className="field w-[280px]" placeholder="Манзил (ихтиёрий)" />
       <button className="btn btn-primary" disabled={pending}>
-        Qo&apos;shish
+        Қўшиш
       </button>
       <button type="button" className="btn" onClick={() => setOpen(false)}>
-        Bekor
+        Бекор
       </button>
       {error && <span className="text-minus text-[13px]">{error}</span>}
     </form>
@@ -47,8 +47,8 @@ export function SiteStatusButton({ id, name, status }: { id: number; name: strin
 
   async function onClick() {
     const question = archive
-      ? `"${name}" yopilsinmi? Arxivdagi ob'ektga yangi yozuv kiritib bo'lmaydi (tarix saqlanadi).`
-      : `"${name}" qayta ochilsinmi?`;
+      ? `«${name}» ёпилсинми? Ёпилган объектга янги ёзув киритиб бўлмайди (тарих сақланади).`
+      : `«${name}» қайта очилсинми?`;
     if (!window.confirm(question)) return;
     await run(() => sendJson(`/api/sites/${id}`, "PATCH", { status: archive ? "ARCHIVED" : "ACTIVE" }));
   }
@@ -56,7 +56,7 @@ export function SiteStatusButton({ id, name, status }: { id: number; name: strin
   return (
     <>
       <button className="link text-[13px]" onClick={onClick} disabled={pending}>
-        {archive ? "Yopish" : "Qayta ochish"}
+        {archive ? "Ёпиш" : "Қайта очиш"}
       </button>
       {error && <div className="text-minus text-[12px]">{error}</div>}
     </>

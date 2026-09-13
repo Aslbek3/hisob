@@ -7,21 +7,23 @@ export default async function CategoriesPage() {
   const rows = await listCategories();
 
   return (
-    <ReferenceEditor
-      endpoint="/api/reference/categories"
-      canEdit
-      emptyValues={{ name: "", isMaterial: false, sortOrder: "0" }}
-      fields={[
-        { key: "name", label: "Nomi", type: "text" },
-        { key: "isMaterial", label: "Material tanlanadi", type: "checkbox", width: "150px", lockedWhenUsed: true },
-        { key: "sortOrder", label: "Tartib", type: "number", width: "90px" },
-      ]}
-      rows={rows.map((c) => ({
-        id: c.id,
-        isActive: c.isActive,
-        usage: c._count.entries,
-        values: { name: c.name, isMaterial: c.isMaterial, sortOrder: String(c.sortOrder) },
-      }))}
-    />
+    <>
+      <p className="text-ink-3 mb-3">Ҳисоботда харажатлар шу категориялар бўйича гуруҳланади. Ҳар бир номга битта категория берилади.</p>
+      <ReferenceEditor
+        endpoint="/api/reference/categories"
+        canEdit
+        emptyValues={{ name: "", sortOrder: "0" }}
+        fields={[
+          { key: "name", label: "Номи", type: "text" },
+          { key: "sortOrder", label: "Тартиб", type: "number", width: "90px" },
+        ]}
+        rows={rows.map((c) => ({
+          id: c.id,
+          isActive: c.isActive,
+          usage: c._count.entries,
+          values: { name: c.name, sortOrder: String(c.sortOrder) },
+        }))}
+      />
+    </>
   );
 }
