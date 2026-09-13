@@ -1,0 +1,314 @@
+// Qurilish kirim-chiqim tizimi — ma'lumotlar bazasi sxemasi (1-bosqich)
+//
+// Asosiy tamoyillar:
+//  • Pul — BigInt, so'mda, kasrsiz. Float hech qayerda yo'q.
+//  • Miqdor — Decimal(14,3) (2.5 t, 0.75 m³). Summa = round(miqdor × narx),
+//    faqat serverda hisoblanadi va DB CHECK bilan ham kafolatlanadi.
+//  • Hech narsa o'chirilmaydi: yozuv — status CANCELLED, spravochnik — isActive=false,
+//    ob'ekt — ARCHIVED. Barcha bog'lanishlar ON DELETE RESTRICT.
+//  • Barcha pul harakati bitta `entries` jadvalida — kassa qoldig'i, ob'ekt
+//    xarajati va (keyinchalik) zavod qoldig'i shu jadvaldan hisoblanadi.
+//  • Keyingi bosqichlar faqat yangi jadval va nullable ustun qo'shadi,
+//    mavjud jadvallar qayta yozilmaydi (pastdagi izohlarga qarang).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider          = "postgresql"
+  url               = env("DATABASE_URL")
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
+}
+
+// ─────────────────────────── Foydalanuvchi va sessiya ───────────────────────────
+
+enum Role {
+  DIRECTOR // hamma narsa + ob'ekt ochish/yopish + oy yopish + foydalanuvchilar
+  ACCOUNTANT // kiritish, tuzatish, hisobot, spravochniklar
+  FOREMAN // prorab: faqat biriktirilgan ob'ekt, faqat chiqim, o'z yozuvi 24 soat ichida
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  name         String
+  login        String   @unique
+  passwordHash String   @map("password_hash")
+  role         Role
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  // 4-bosqich (bot): telegramId BigInt? @unique — nullable ustun qo'shiladi
+
+  sessions         Session[]
+  siteAssignments  SiteAssignment[]
+  createdEntries   Entry[]          @relation("EntryCreatedBy")
+  updatedEntries   Entry[]          @relation("EntryUpdatedBy")
+  cancelledEntries Entry[]          @relation("EntryCancelledBy")
+  closedPeriods    ClosedPeriod[]
+  auditLogs        AuditLog[]
+
+  @@map("users")
+}
+
+model Session {
+  id        String   @id // tokenning SHA-256 hashi; tokenning o'zi faqat httpOnly cookie'da
+  userId    Int      @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  expiresAt DateTime @map("expires_at") @db.Timestamptz
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+// ─────────────────────────── Firma, hisob (kassa) ───────────────────────────
+
+model Company {
+  id        Int      @id @default(autoincrement())
+  name      String // o'zgarishi mumkin — hamma bog'lanish id orqali
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  accounts Account[]
+
+  @@map("companies")
+}
+
+enum AccountType {
+  BANK // firma bank hisobi
+  CASH // firma naqd kassasi
+  PERSONAL // shaxsiy naqd hisob
+}
+
+model Account {
+  id             Int         @id @default(autoincrement())
+  name           String
+  type           AccountType
+  companyId      Int?        @map("company_id") // PERSONAL hisobda bo'sh bo'lishi mumkin
+  company        Company?    @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  // Tizimga o'tish paytidagi qoldiq. Hisobga birinchi yozuv tushgach qulflanadi.
+  openingBalance BigInt      @default(0) @map("opening_balance")
+  isActive       Boolean     @default(true) @map("is_active")
+  sortOrder      Int         @default(0) @map("sort_order")
+  createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamptz
+
+  entries           Entry[] @relation("EntryAccount")
+  incomingTransfers Entry[] @relation("EntryToAccount")
+
+  @@map("accounts")
+}
+
+// ─────────────────────────── Ob'ekt ───────────────────────────
+
+enum SiteStatus {
+  ACTIVE
+  ARCHIVED // yopilgan ob'ekt — yangi yozuv qabul qilmaydi, tarix saqlanadi
+}
+
+model Site {
+  id         Int        @id @default(autoincrement())
+  name       String
+  address    String?
+  status     SiteStatus @default(ACTIVE)
+  createdAt  DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  archivedAt DateTime?  @map("archived_at") @db.Timestamptz
+
+  entries     Entry[]
+  assignments SiteAssignment[]
+
+  @@map("sites")
+}
+
+// Prorab ↔ ob'ekt (bitta prorabda bir nechta ob'ekt, bitta ob'ektda bir nechta prorab)
+model SiteAssignment {
+  userId Int  @map("user_id")
+  siteId Int  @map("site_id")
+  user   User @relation(fields: [userId], references: [id], onDelete: Restrict)
+  site   Site @relation(fields: [siteId], references: [id], onDelete: Restrict)
+
+  @@id([userId, siteId])
+  @@map("site_assignments")
+}
+
+// ─────────────────────────── Spravochniklar ───────────────────────────
+
+model Category {
+  id         Int     @id @default(autoincrement())
+  name       String  @unique
+  isMaterial Boolean @default(false) @map("is_material") // true → yozuvda material majburiy
+  isActive   Boolean @default(true) @map("is_active")
+  sortOrder  Int     @default(0) @map("sort_order")
+
+  entries Entry[]
+
+  @@map("categories")
+}
+
+model Material {
+  id        Int      @id @default(autoincrement())
+  name      String
+  // Normalizatsiya qilingan nom: kichik harf, bo'shliqlar yig'ilgan, o' / o‘ / oʻ / o`
+  // bir xil belgiga keltirilgan. "Sement M400" va "sement  m400" — bitta material.
+  nameKey   String   @unique @map("name_key")
+  unit      String // lib/units.ts ro'yxatidan: kg, t, m³, m², m, dona, qop, l ...
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  entries Entry[]
+
+  @@map("materials")
+}
+
+enum CounterpartyKind {
+  PAYER // kirim manbai: buyurtmachi, investor, ta'sischi
+  // SUPPLIER   — 2-bosqich: zavod/baza (+ tracksBalance Boolean ustuni qo'shiladi)
+  // CONTRACTOR — 3-bosqich: usta/brigada
+}
+
+model Counterparty {
+  id        Int              @id @default(autoincrement())
+  name      String
+  kind      CounterpartyKind
+  phone     String?
+  note      String?
+  isActive  Boolean          @default(true) @map("is_active")
+  createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz
+
+  entries Entry[]
+
+  @@map("counterparties")
+}
+
+// ─────────────────────────── Yozuvlar (asosiy jadval) ───────────────────────────
+
+enum EntryKind {
+  INCOME // kirim: hisobga pul tushdi (ob'ekt uchun)
+  EXPENSE // chiqim: hisobdan pul ketdi — ob'ekt xarajati
+  TRANSFER // hisoblar orasida (bankdan naqdga) — ob'ekt xarajati emas
+  // SUPPLIER_PAYMENT — 2-bosqich: zavodga to'lov (hisob −, ob'ekt yo'q)
+  // GOODS_RECEIPT    — 2-bosqich: tovar keldi (ob'ekt xarajati, hisob yo'q)
+}
+
+enum EntryStatus {
+  ACTIVE
+  CANCELLED // bekor qilingan — hisob-kitobga kirmaydi, tarixda qoladi
+}
+
+model Entry {
+  id     Int         @id @default(autoincrement()) // ekranda "#1234"
+  kind   EntryKind
+  status EntryStatus @default(ACTIVE)
+  date   DateTime    @db.Date // biznes sanasi; kelajak sanasi (Toshkent vaqti) taqiqlangan
+
+  siteId         Int? @map("site_id")
+  accountId      Int? @map("account_id") // pul qaysi hisobdan chiqdi / qaysi hisobga tushdi
+  toAccountId    Int? @map("to_account_id") // faqat TRANSFER
+  categoryId     Int? @map("category_id")
+  materialId     Int? @map("material_id")
+  counterpartyId Int? @map("counterparty_id")
+  // 3-bosqich: contractId Int? — usta avansi = shu yozuvning o'zi (EXPENSE, Ish haqi),
+  //            ikki marta yozilmaydi, kassa qoldig'i avtomatik to'g'ri chiqadi.
+
+  quantity  Decimal @default(1) @db.Decimal(14, 3)
+  unitPrice BigInt  @map("unit_price") // bitta birlik narxi, so'm
+  amount    BigInt // = round(quantity × unitPrice); qo'lda kiritilmaydi
+  note      String?
+
+  createdById   Int       @map("created_by_id")
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedById   Int?      @map("updated_by_id")
+  updatedAt     DateTime? @map("updated_at") @db.Timestamptz
+  cancelledById Int?      @map("cancelled_by_id")
+  cancelledAt   DateTime? @map("cancelled_at") @db.Timestamptz
+  cancelReason  String?   @map("cancel_reason")
+
+  site         Site?         @relation(fields: [siteId], references: [id], onDelete: Restrict)
+  account      Account?      @relation("EntryAccount", fields: [accountId], references: [id], onDelete: Restrict)
+  toAccount    Account?      @relation("EntryToAccount", fields: [toAccountId], references: [id], onDelete: Restrict)
+  category     Category?     @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  material     Material?     @relation(fields: [materialId], references: [id], onDelete: Restrict)
+  counterparty Counterparty? @relation(fields: [counterpartyId], references: [id], onDelete: Restrict)
+  createdBy    User          @relation("EntryCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy    User?         @relation("EntryUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
+  cancelledBy  User?         @relation("EntryCancelledBy", fields: [cancelledById], references: [id], onDelete: Restrict)
+
+  @@index([siteId, date]) // ob'ekt kartasi + takrorlanish tekshiruvi
+  @@index([accountId, date]) // kassa harakati
+  @@index([toAccountId])
+  @@index([date])
+  @@index([categoryId])
+  @@index([createdById])
+  @@map("entries")
+}
+
+// Migratsiyaga qo'lda qo'shilgan himoya (Prisma sxemada yozib bo'lmaydi) —
+// prisma/migrations/*_init/migration.sql oxiriga qarang:
+//   CHECK: amount > 0, quantity > 0, amount = round(quantity * unit_price)
+//   CHECK: har bir kind uchun majburiy maydonlar; CANCELLED → sabab majburiy
+//   TRIGGER: entries'dan DELETE taqiqlangan; audit_logs faqat qo'shiladi
+
+// ─────────────────────────── Oy yopish ───────────────────────────
+
+// Qator bor = oy yopiq. Yopiq oyga yozuv qo'shish/o'zgartirish/bekor qilish mumkin emas.
+// Qayta ochish — faqat direktor, sabab bilan, audit jurnaliga yoziladi.
+model ClosedPeriod {
+  month      DateTime @id @db.Date // oyning 1-kuni, masalan 2026-08-01
+  closedById Int      @map("closed_by_id")
+  closedBy   User     @relation(fields: [closedById], references: [id], onDelete: Restrict)
+  closedAt   DateTime @default(now()) @map("closed_at") @db.Timestamptz
+
+  @@map("closed_periods")
+}
+
+// ─────────────────────────── Audit jurnali ───────────────────────────
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  CANCEL
+  ARCHIVE
+  RESTORE
+  CLOSE_MONTH
+  REOPEN_MONTH
+  LOGIN
+  PASSWORD_RESET
+}
+
+// O'zgarish bilan bitta DB tranzaksiyada yoziladi — biri yozilib, ikkinchisi
+// yozilmay qolishi mumkin emas. before/after'da BigInt string ko'rinishida.
+model AuditLog {
+  id         BigInt      @id @default(autoincrement())
+  at         DateTime    @default(now()) @db.Timestamptz
+  userId     Int         @map("user_id")
+  user       User        @relation(fields: [userId], references: [id], onDelete: Restrict)
+  action     AuditAction
+  entityType String      @map("entity_type") // "Entry", "Site", "Account", "Material" ...
+  entityId   String      @map("entity_id")
+  before     Json?
+  after      Json?
+  reason     String?
+
+  @@index([entityType, entityId])
+  @@index([at])
+  @@map("audit_logs")
+}
+
+// ─────────────────────────── Keyingi bosqichlar (hozir yo'q) ───────────────────────────
+//
+// 2-bosqich — yetkazib beruvchi va ombor:
+//   Counterparty: kind SUPPLIER, tracksBalance Boolean ustuni
+//   EntryKind: SUPPLIER_PAYMENT, GOODS_RECEIPT
+//   Zavod qoldig'i = Σ SUPPLIER_PAYMENT − Σ GOODS_RECEIPT (counterpartyId bo'yicha)
+//   Bozordan naqd xarid — oddiy EXPENSE (o'zgarmaydi)
+//   InventoryCount { siteId, materialId, month, quantity }  — oy oxiri sanog'i
+//   Sarf = oldingi qoldiq + Σ kirim (materialId bo'yicha yozuvlar) − hozirgi qoldiq
+//
+// 3-bosqich — ustalar:
+//   Counterparty: kind CONTRACTOR
+//   Contract { counterpartyId, siteId, pricing FIXED|PER_UNIT, totalAmount?, unitPrice?, unit? }
+//   ContractWork { contractId, date, quantity } — birlik narxli shartnomada bajarilgan hajm
+//   Entry.contractId Int? — avans = EXPENSE yozuvi; qarz = kelishilgan − Σ avanslar
+//
+// 4-bosqich — Telegram bot:
+//   User.telegramId, Attachment { entryId, path } (chek fotosi, uploads/ papkada)
+//   Bot faqat /api orqali ishlaydi — hisob-kitob mantig'i bitta joyda qoladi

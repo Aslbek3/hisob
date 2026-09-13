@@ -1,0 +1,187 @@
+@import "tailwindcss";
+
+/*
+ * Dizayn tokenlari. panel-mockup-v2.html kelgach shu yerda almashtiriladi —
+ * komponentlar faqat shu nomlardan foydalanadi.
+ */
+@theme {
+  --font-sans: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", "Cascadia Mono", Consolas, monospace;
+
+  --color-ink: #16191d;
+  --color-ink-2: #4a5159;
+  --color-ink-3: #7d858e;
+  --color-line: #dfe3e8;
+  --color-line-2: #eef0f3;
+  --color-paper: #ffffff;
+  --color-canvas: #f5f6f8;
+  --color-accent: #1f5fbf;
+  --color-accent-soft: #e8f0fb;
+  --color-plus: #1b7a43;
+  --color-minus: #b42318;
+  --color-warn: #9a6700;
+  --color-warn-soft: #fff6db;
+  --color-err-soft: #fdecea;
+}
+
+html {
+  color: var(--color-ink);
+  background: var(--color-canvas);
+  font-size: 14px;
+}
+
+body {
+  font-family: var(--font-sans);
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* ── Jadval: butun ilovada bitta ko'rinish ── */
+.tbl {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--color-paper);
+}
+.tbl th {
+  text-align: left;
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--color-ink-2);
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--color-line);
+  background: var(--color-canvas);
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.tbl td {
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--color-line-2);
+  vertical-align: top;
+}
+.tbl tbody tr:hover td {
+  background: #fafbfc;
+}
+.tbl tfoot td {
+  font-weight: 600;
+  border-top: 1px solid var(--color-line);
+  border-bottom: none;
+  background: var(--color-canvas);
+}
+.tbl th.num {
+  text-align: right;
+}
+
+/* ── Kiritish jadvali: katak = chegarasiz input, Excel kabi ── */
+.grid-tbl td {
+  padding: 0;
+  border: 1px solid var(--color-line-2);
+  height: 30px;
+  vertical-align: middle;
+}
+.grid-tbl th {
+  border: 1px solid var(--color-line);
+}
+.grid-tbl tbody tr:hover td {
+  background: inherit;
+}
+.cell {
+  width: 100%;
+  height: 29px;
+  padding: 0 8px;
+  border: none;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+}
+.cell:focus {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+  background: var(--color-paper);
+}
+.cell:disabled {
+  color: var(--color-ink-3);
+  cursor: default;
+}
+.cell-invalid {
+  box-shadow: inset 0 -2px 0 var(--color-minus);
+}
+.cell.num {
+  text-align: right;
+}
+.row-saved td {
+  background: var(--color-paper);
+}
+.row-draft td {
+  background: #fcfcfd;
+}
+.row-dup td {
+  background: var(--color-warn-soft);
+}
+.row-error td {
+  background: var(--color-err-soft);
+}
+.row-locked td {
+  background: var(--color-canvas);
+  color: var(--color-ink-2);
+}
+
+/* ── Forma elementlari ── */
+.field {
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--color-line);
+  border-radius: 3px;
+  background: var(--color-paper);
+  font: inherit;
+  color: inherit;
+  min-width: 0;
+}
+.field:focus {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -1px;
+  border-color: var(--color-accent);
+}
+.btn {
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--color-line);
+  border-radius: 3px;
+  background: var(--color-paper);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.btn:hover {
+  background: var(--color-canvas);
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.btn-primary {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: #fff;
+}
+.btn-primary:hover {
+  background: #1a4fa0;
+}
+.btn-danger {
+  color: var(--color-minus);
+}
+.link {
+  color: var(--color-accent);
+}
+.link:hover {
+  text-decoration: underline;
+}
