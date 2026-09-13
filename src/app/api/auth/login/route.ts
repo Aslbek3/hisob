@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { setSessionCookie } from "@/lib/auth";
-import { errorResponse, jsonResponse } from "@/lib/api";
+import { errorResponse, isSameOrigin, jsonResponse } from "@/lib/api";
 import { allowLoginAttempt, getClientIp, resetLoginAttempts } from "@/lib/rateLimit";
 import { logError } from "@/lib/logger";
 import { login, purgeExpiredSessions } from "@/services/auth";
@@ -9,6 +9,7 @@ const schema = z.object({ login: z.string().trim().min(1).max(64), password: z.s
 
 // Ochiq route (sessiyasiz) — ruxsat tekshiruvi o'rniga urinishlar cheklovi.
 export async function POST(request: Request) {
+  if (!isSameOrigin(request)) return errorResponse("Рухсат йўқ", 403);
   const parsed = schema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return errorResponse("Логин ва паролни ёзинг", 400);
   const { login: loginName, password } = parsed.data;

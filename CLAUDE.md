@@ -17,6 +17,10 @@ WebSocket, keshlash, mikroservis kerak emas. Yangi imkoniyat faqat foydalanuvchi
 - Asosiy ekran — **Кунлик дафтар** (`/kiritish`): ob'ekt tugmasi + sana, pastma-past qatorlar,
   har qatorda "Ким тўлади" (hisob yoki "Қарзга"). Enter yoki qatordan chiqish — o'zi saqlanadi.
 - Nom faqat ro'yxatdan; yangi nom qo'shishda o'xshashlari taklif qilinadi (`similarNames`).
+- Kun/ob'ekt/sahifa almashishidan oldin saqlanmagan qatorlar saqlanadi va natija kutiladi
+  (`flushUnsaved`); bitta qator uchun bir vaqtda bitta so'rov (`inFlight`). Bularni buzmang —
+  aks holda qator jimgina yo'qoladi yoki ikki marta yuboriladi.
+- Narx yozilmay faqat summa yozilsa — narx summadan olinadi (`withDerivedPrice`), summa o'zgarmaydi.
 
 ## Stack
 Next.js 16 (App Router, panel + API bitta joyda), TypeScript, PostgreSQL + Prisma 6,
@@ -51,6 +55,7 @@ Qatlamlar bir yo'nalishda: **API route → service → Prisma**.
 - Yopilgan oy va kelajak sanasi (Toshkent vaqti) — `assertDateWritable()` (`services/periods.ts`).
 
 ## Bazadagi himoya (migratsiya oxirida, qo'lda yozilgan SQL)
+Mutatsiya API'lari Origin tekshiradi (`isSameOrigin`) — Nginx'da `proxy_set_header Host $host` shart.
 CHECK: `amount > 0`, `amount = round(quantity * unit_price)` yoki `adjust_reason` bor, har `kind` uchun majburiy maydonlar,
 bekor qilinganda sabab majburiy. TRIGGER: `entries`dan DELETE taqiqlangan; `audit_logs` faqat
 qo'shiladi. Barcha FK — `ON DELETE RESTRICT`. **Yangi migratsiya yozganda bularni saqlang.**
@@ -75,6 +80,8 @@ npm run dev                                # http://localhost:3100
 `.env` — `.env.example`dan. Lokal PGlite uchun DATABASE_URL'da `pgbouncer=true` shart
 ("prepared statement already exists" xatosi), production'da kerak emas.
 Kam RAM'li kompyuterda `next dev` beqaror bo'lsa — `npm run build && npx next start -p 3100`.
+`npm test` — pul hisobi va nom solishtirish unit testlari (`src/lib/*.test.ts`).
+Serverga o'rnatish — [docs/deploy.md](docs/deploy.md).
 
 ## ⚠️ Repo OCHIQ (public)
 Parol, token, `.env`, haqiqiy firma/mijoz ma'lumotlari repo'ga YOZILMAYDI — shu fayl ham.

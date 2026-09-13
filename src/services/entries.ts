@@ -334,12 +334,14 @@ function toData(e: NormalizedEntry) {
 export type DuplicateInfo = { id: number; description: string; createdByName: string; createdAt: string };
 
 /**
- * Bir xil sana + summa + ob'ekt (to'lovda — yetkazib beruvchi, kirim/o'tkazmada — hisob).
+ * Bir xil sana + summa + ob'ekt + nom (to'lovda — yetkazib beruvchi, kirim/o'tkazmada — hisob).
+ * Nom ham solishtiriladi: aks holda "Мих 50 000" va "Сим 50 000" doim takror deb chiqib,
+ * foydalanuvchi ogohlantirishga e'tibor bermay qo'yardi.
  * Topilsa ogohlantirish — to'xtatmaydi: foydalanuvchi tasdiqlasa saqlanadi.
  */
 async function findDuplicates(tx: Tx, e: NormalizedEntry, excludeId?: number): Promise<DuplicateInfo[]> {
   const scope: Prisma.EntryWhereInput = isSiteExpense(e.kind)
-    ? { siteId: e.siteId, kind: { in: SITE_EXPENSE_KINDS } }
+    ? { siteId: e.siteId, materialId: e.materialId, kind: { in: SITE_EXPENSE_KINDS } }
     : e.kind === "SUPPLIER_PAYMENT"
       ? { kind: "SUPPLIER_PAYMENT", counterpartyId: e.counterpartyId }
       : e.kind === "TRANSFER"
@@ -368,7 +370,7 @@ async function findDuplicates(tx: Tx, e: NormalizedEntry, excludeId?: number): P
 
 function duplicateError(dups: DuplicateInfo[]) {
   const list = dups.map((d) => `№${d.id}${d.description ? ` (${d.description})` : ""}`).join(", ");
-  return new ServiceError(`Шу куни худди шу суммали ёзув бор: ${list}. Барибир сақлансинми?`, 409, "DUPLICATE", {
+  return new ServiceError(`Шу куни худди шундай ёзув бор: ${list}. Барибир сақлансинми?`, 409, "DUPLICATE", {
     duplicates: dups,
   });
 }

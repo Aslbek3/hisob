@@ -65,7 +65,9 @@ export async function getPeriodReport(
     office ? listEntriesForExport(user, { siteId: q.siteId, from: q.from, to: q.to, status: "ACTIVE", kind: "INCOME" }) : Promise.resolve([]),
     prisma.account.findMany({ orderBy: [{ sortOrder: "asc" }, { id: "asc" }], select: { id: true, name: true } }),
     prisma.site.findMany({
-      where: { ...(q.siteId ? { id: q.siteId } : {}), ...(office ? {} : { id: { in: user.siteIds } }) },
+      where: {
+        AND: [q.siteId ? { id: q.siteId } : {}, office ? {} : { id: { in: user.siteIds } }],
+      },
       orderBy: { name: "asc" },
       select: { id: true, name: true, address: true, status: true },
     }),
@@ -75,7 +77,7 @@ export async function getPeriodReport(
   // Ustunlar: davrda ishlatilgan hisoblar (tartib bo'yicha) + qarzga
   const usedPayers = new Set(expenses.map((e) => (e.kind === "GOODS_RECEIPT" ? DEBT_COLUMN : String(e.accountId))));
   const payers: PayerColumn[] = accounts.filter((a) => usedPayers.has(String(a.id))).map((a) => ({ key: String(a.id), label: a.name }));
-  if (usedPayers.has(DEBT_COLUMN)) payers.push({ key: DEBT_COLUMN, label: "Қарзга (етказиб берувчи)" });
+  if (usedPayers.has(DEBT_COLUMN)) payers.push({ key: DEBT_COLUMN, label: "Етказиб берувчи ҳисобидан (қарз/аванс)" });
 
   const siteReports: SiteReport[] = [];
   for (const s of sites) {

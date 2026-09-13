@@ -81,6 +81,7 @@ export async function saveReference(user: SessionUser, type: ReferenceType, id: 
   return prisma.$transaction(async (tx) => {
     let before: unknown = null;
     let after: unknown;
+    let reason: string | null = null;
 
     switch (type) {
       case "companies": {
@@ -147,11 +148,20 @@ export async function saveReference(user: SessionUser, type: ReferenceType, id: 
           if (prev.unit !== data.unit && (await tx.entry.count({ where: { materialId: id } })) > 0) {
             throw new ServiceError("Бу ном ёзувларда ишлатилган — ўлчов бирлигини ўзгартириб бўлмайди (эски миқдорлар нотўғри бўлиб қолади)", 409);
           }
-          after = await tx.material.update({ where: { id }, data: { ...data, nameKey: key } });
-          // Kategoriya o'zgarsa — ochiq yozuvlar ham yangilanadi (hisobot bir xil bo'lsin)
           if (prev.categoryId !== data.categoryId) {
-            await tx.entry.updateMany({ where: { materialId: id }, data: { categoryId: data.categoryId } });
+            // Yozuvlardagi kategoriya ham yangilanadi (hisobot bir xil bo'lsin). Yopilgan oyning
+            // hisoboti esa o'zgarmasligi shart — bunday yozuv bo'lsa, rad etiladi.
+            const [closed] = await tx.$queryRaw<{ n: bigint }[]>`
+              SELECT count(*) AS n FROM entries e
+              JOIN closed_periods cp ON cp.month = date_trunc('month', e.date)::date
+              WHERE e.material_id = ${id}`;
+            if (closed.n > 0n) {
+              throw new ServiceError("Бу ном ёпилган ойларда ишлатилган — категориясини ўзгартириб бўлмайди (ёпилган ой ҳисоботи ўзгариб кетади). Керак бўлса янги ном очинг.", 409);
+            }
+            const moved = await tx.entry.updateMany({ where: { materialId: id }, data: { categoryId: data.categoryId } });
+            reason = `${moved.count} та ёзувнинг категорияси ҳам ўзгартирилди`;
           }
+          after = await tx.material.update({ where: { id }, data: { ...data, nameKey: key } });
         } else {
           after = await tx.material.create({ data: { ...data, nameKey: key } });
         }
@@ -184,6 +194,7 @@ export async function saveReference(user: SessionUser, type: ReferenceType, id: 
       entityId: saved.id,
       before,
       after,
+      reason,
     });
     return saved;
   });

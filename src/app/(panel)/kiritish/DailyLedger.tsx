@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ComboCell, type ComboOption } from "@/components/grid/ComboCell";
 import { MoneyMoveForm } from "@/components/MoneyMoveForm";
 import { computeAmount, formatQuantity, formatSom, parseQuantityMilli, parseSom } from "@/lib/money";
-import { formatDate, formatMonth, monthStartIso } from "@/lib/dates";
+import { formatDate, formatMonth, monthStartIso, todayIso } from "@/lib/dates";
 import { unitLabel } from "@/lib/units";
 import type { EntryOptions, ItemOption, Option } from "@/services/reference";
 import type { EntryRow } from "@/services/entries";
@@ -13,15 +14,19 @@ import { NewNameDialog } from "./NewNameDialog";
 /**
  * Kunlik daftar — asosiy ekran. Excel'dagi kabi: bitta ob'ekt, bitta kun,
  * pastma-past qatorlar. Har qatorda kim to'lagani tanlanadi (firma naqd kassasi,
- * perechisleniye, shaxsiy hisob...) yoki "Қарзга" — yetkazib beruvchi hisobiga.
+ * perechisleniye, shaxsiy hisob...) yoki "Етказиб берувчи ҳисобидан" (qarz/avans).
  *
  * Saqlash: Enter bosilganda YOKI qatordan chiqilganda (sichqoncha bilan
  * ishlaydigan foydalanuvchi uchun) — qator to'liq bo'lsa o'zi saqlanadi.
+ * Kun/ob'ekt/sahifa almashishidan oldin barcha qatorlar saqlanadi va natija
+ * kutiladi — saqlanmagan qator jimgina yo'qolmaydi.
  */
 
 type RowStatus = "draft" | "dirty" | "saving" | "saved" | "dup" | "error";
 const DEBT = "debt";
 const ADJUST_CHOICES = ["Чегирма", "Яхлитлаш", "Келишилган нарх"];
+const AUTO_ROUND = "Яхлитлаш (нарх суммадан ҳисобланди)";
+const DEBT_LABEL = "Етказиб берувчи ҳисобидан";
 
 type Row = {
   key: string;
@@ -32,6 +37,8 @@ type Row = {
   /** To'langan summa (qo'lda tuzatilgan bo'lsa). amountTouched=false — avtomatik. */
   amount: string;
   amountTouched: boolean;
+  /** Narx foydalanuvchi yozmagan — to'langan summadan hisoblangan (summa ÷ miqdor). */
+  priceDerived: boolean;
   adjustReason: string;
   payer: string; // hisob id'si yoki DEBT
   supplierId: number | null;
@@ -40,6 +47,8 @@ type Row = {
   message: string | null;
   canModify: boolean;
   createdByName: string | null;
+  /** Har tahrirda oshadi — saqlash paytida kiritilgan o'zgarish yo'qolmasligi uchun. */
+  rev: number;
 };
 
 type Col = "item" | "qty" | "price" | "amount" | "payer" | "supplier" | "note";
@@ -57,6 +66,7 @@ function emptyRow(payer: string): Row {
     unitPrice: "",
     amount: "",
     amountTouched: false,
+    priceDerived: false,
     adjustReason: "",
     payer,
     supplierId: null,
@@ -65,6 +75,7 @@ function emptyRow(payer: string): Row {
     message: null,
     canModify: true,
     createdByName: null,
+    rev: 0,
   };
 }
 
@@ -95,6 +106,7 @@ function fromEntry(e: EntryRow, key?: string): Row {
     ...base,
     amount: formatSom(e.amount),
     amountTouched: auto === null || auto.toString() !== e.amount,
+    priceDerived: false,
     adjustReason: e.adjustReason ?? "",
     payer: e.kind === "GOODS_RECEIPT" ? DEBT : String(e.accountId ?? ""),
     supplierId: e.counterpartyId,
@@ -103,7 +115,24 @@ function fromEntry(e: EntryRow, key?: string): Row {
     message: null,
     canModify: e.canModify,
     createdByName: e.createdByName,
+    rev: 0,
   };
+}
+
+/**
+ * Narx yozilmay faqat to'langan summa yozilgan bo'lsa (yoki narx avval summadan
+ * olingan bo'lsa) — narx = summa ÷ miqdor. Summa o'zgarmaydi (u — fakt):
+ * "6 дона, 170 000" → narx 28 333, farq (2 so'm) sababi "Яхлитлаш".
+ */
+function withDerivedPrice(r: Row): Row {
+  if (!r.amountTouched || (r.unitPrice.trim() && !r.priceDerived)) return r;
+  const paid = parseSom(r.amount);
+  const q = parseQuantityMilli(r.quantity);
+  if (paid === null || q === null || q <= 0n) return r;
+  const price = (paid * 1000n + q / 2n) / q;
+  const exact = computeAmount(q, price) === paid;
+  const adjustReason = exact ? (r.adjustReason === AUTO_ROUND ? "" : r.adjustReason) : r.adjustReason || AUTO_ROUND;
+  return { ...r, unitPrice: formatSom(price), priceDerived: true, adjustReason };
 }
 
 function hasContent(r: Row): boolean {
@@ -114,14 +143,15 @@ function hasContent(r: Row): boolean {
 }
 
 /** Mijoz tomonidagi tez tekshiruv — server baribir o'zi tekshiradi. */
-function validate(r: Row): string | null {
+function validate(row: Row): string | null {
+  const r = withDerivedPrice(row);
   if (!r.materialId) return "Номини рўйхатдан танланг";
   if (parseQuantityMilli(r.quantity) === null) return "Миқдор нотўғри";
   if (parseSom(r.unitPrice) === null) return "Нархни ёзинг (бутун сўм)";
   const amount = effective(r);
   if (amount === null || amount <= 0n) return "Сумма 0 бўлиши мумкин эмас";
   if (!r.payer) return "Ким тўлаганини танланг";
-  if (r.payer === DEBT && !r.supplierId) return "Қарзга олинганда етказиб берувчини танланг";
+  if (r.payer === DEBT && !r.supplierId) return `«${DEBT_LABEL}» танланганда етказиб берувчини танланг`;
   if (mismatch(r) && !r.adjustReason.trim()) return "Сумма миқдор × нархдан фарқ қилади — сабабини танланг";
   return null;
 }
@@ -136,10 +166,22 @@ export function DailyLedger(props: {
   closedMonths: string[];
   focusId: number | null;
   showIncome: boolean;
+  /** Yangi nom/yetkazib beruvchi qo'shish huquqi (ofis). Prorabga "+ Янги" ko'rsatilmaydi. */
+  canAddNames: boolean;
 }) {
-  const { today, closedMonths } = props;
+  const { closedMonths } = props;
+  // Sahifa yarim tundan keyin ham ochiq qolsa — "bugun" yangilanib tursin
+  const [today, setToday] = useState(props.today);
+  useEffect(() => {
+    const t = setInterval(() => setToday(todayIso()), 60_000);
+    return () => clearInterval(t);
+  }, []);
+  const router = useRouter();
   const [items, setItems] = useState<ItemOption[]>(props.options.items);
   const [suppliers, setSuppliers] = useState<Option[]>(props.options.suppliers);
+  /** Eski qatorlarda ishlatilgan, lekin hozir yopilgan hisoblar — select'da bo'sh ko'rinmasin. */
+  const [extraAccounts, setExtraAccounts] = useState<Option[]>([]);
+  const [notice, setNotice] = useState<string | null>(null);
   const { sites, accounts, categories, payers } = props.options;
 
   const [siteId, setSiteId] = useState<number | null>(props.initialSiteId);
@@ -148,7 +190,6 @@ export function DailyLedger(props: {
   const [incomes, setIncomes] = useState<EntryRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [reloadTick, setReloadTick] = useState(0);
   const [dialog, setDialog] = useState<{ mode: "item" | "supplier"; rowKey: string; text: string } | null>(null);
   const [cancelling, setCancelling] = useState<{ key: string; reason: string } | null>(null);
 
@@ -157,6 +198,14 @@ export function DailyLedger(props: {
   const cellRefs = useRef(new Map<string, HTMLElement>());
   const pendingFocus = useRef<{ key: string; col: Col } | null>(null);
   const lastPayer = useRef<string>(accounts[0] ? String(accounts[0].id) : "");
+  /**
+   * Hozir serverga ketayotgan qatorlar. Enter bosilganda saqlash boshlanadi va
+   * fokus darhol keyingi qatorga o'tadi — bu o'tish "qatordan chiqildi"
+   * (avto-saqlash) hodisasini ham chaqiradi, rowsRef esa hali eski holatda.
+   * Shu to'plam bo'lmasa bitta qator ikki marta yuborilib, ikkinchisi
+   * "takror" deb qaytib, saqlangan qatorni xato ko'rsatardi.
+   */
+  const inFlight = useRef(new Map<string, Promise<boolean>>());
 
   const itemById = new Map(items.map((i) => [i.id, i]));
   const itemOptions: ComboOption[] = items.map((i) => ({ id: i.id, name: i.name, hint: unitLabel(i.unit) }));
@@ -196,9 +245,12 @@ export function DailyLedger(props: {
         if (!res.ok) {
           setLoadError(data?.error ?? "Юклаб бўлмади");
           setRows([]);
+          setIncomes([]);
           return;
         }
-        const loaded = (data.expenses as EntryRow[]).map((e) => fromEntry(e));
+        const exps = data.expenses as EntryRow[];
+        mergeInactive(exps);
+        const loaded = exps.map((e) => fromEntry(e));
         const last = loaded[loaded.length - 1];
         if (last?.payer) lastPayer.current = last.payer;
         const draft = emptyRow(lastPayer.current);
@@ -213,7 +265,42 @@ export function DailyLedger(props: {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [siteId, date, reloadTick]);
+  }, [siteId, date]);
+
+  /** Eski qatorda o'chirilgan nom/yetkazib beruvchi/hisob bo'lsa — ro'yxatga "(ўчирилган)" bilan qo'shiladi. */
+  function mergeInactive(exps: EntryRow[]) {
+    const mark = (name: string | null) => `${name ?? "?"} (ўчирилган)`;
+    setItems((xs) => {
+      const have = new Set(xs.map((x) => x.id));
+      const add = new Map<number, ItemOption>();
+      for (const e of exps) {
+        if (e.materialId && !have.has(e.materialId)) {
+          add.set(e.materialId, { id: e.materialId, name: mark(e.materialName), unit: e.unit ?? "dona", categoryId: e.categoryId });
+        }
+      }
+      return add.size ? [...xs, ...add.values()] : xs;
+    });
+    setSuppliers((xs) => {
+      const have = new Set(xs.map((x) => x.id));
+      const add = new Map<number, Option>();
+      for (const e of exps) if (e.counterpartyId && !have.has(e.counterpartyId)) add.set(e.counterpartyId, { id: e.counterpartyId, name: mark(e.counterpartyName) });
+      return add.size ? [...xs, ...add.values()] : xs;
+    });
+    setExtraAccounts((xs) => {
+      const have = new Set([...accounts, ...xs].map((x) => x.id));
+      const add = new Map<number, Option>();
+      for (const e of exps) if (e.accountId && !have.has(e.accountId)) add.set(e.accountId, { id: e.accountId, name: mark(e.accountName) });
+      return add.size ? [...xs, ...add.values()] : xs;
+    });
+  }
+
+  /** Kirim qo'shilgach faqat kirimlar yangilanadi — yozilayotgan qatorlar joyida qoladi. */
+  async function reloadIncomes() {
+    if (!siteId) return;
+    const res = await fetch(`/api/entries?siteId=${siteId}&date=${date}`).catch(() => null);
+    const data = res?.ok ? await res.json().catch(() => null) : null;
+    if (data) setIncomes(data.incomes as EntryRow[]);
+  }
 
   // Kutilayotgan fokus (yangi qator chizilgach)
   useEffect(() => {
@@ -237,13 +324,44 @@ export function DailyLedger(props: {
 
   const unsaved = rows.filter((r) => r.status !== "saved" && hasContent(r));
 
-  function changeDay(patch: { siteId?: number; date?: string }) {
-    if (unsaved.length > 0) {
-      // Avval to'liq qatorlarni saqlab qo'yamiz — foydalanuvchi ma'lumoti yo'qolmasin
-      const incomplete = unsaved.filter((r) => validate(r) !== null);
-      if (incomplete.length && !window.confirm(`${incomplete.length} та қатор тўлиқ эмас ва сақланмаган. Барибир ўтилсинми?`)) return;
-      unsaved.filter((r) => validate(r) === null).forEach((r) => void saveRow(r.key));
-    }
+  /**
+   * Kun/ob'ekt/sahifa almashishidan oldin: to'liq qatorlar saqlanadi va NATIJA
+   * KUTILADI. Birortasi saqlanmasa (takror, server rad etdi, tarmoq) — joyida
+   * qolamiz. To'liq bo'lmagan qatorlar — faqat foydalanuvchi rozi bo'lsa tashlanadi.
+   */
+  async function flushUnsaved(): Promise<boolean> {
+    const pending = rowsRef.current.filter((r) => r.status !== "saved" && hasContent(r));
+    if (!pending.length) return true;
+    const incomplete = pending.filter((r) => validate(r) !== null && r.status !== "dup");
+    if (incomplete.length && !window.confirm(`${incomplete.length} та қатор тўлиқ эмас — сақланмайди. Барибир ўтилсинми?`)) return false;
+    const results = await Promise.all(pending.filter((r) => !incomplete.includes(r)).map((r) => saveRow(r.key)));
+    if (results.every(Boolean)) return true;
+    setNotice("Баъзи қаторлар сақланмади — қизил ёки сариқ қаторни тузатинг ёки «Ҳа, барибир сақлаш»ни босинг.");
+    return false;
+  }
+  const flushRef = useRef(flushUnsaved);
+  flushRef.current = flushUnsaved;
+
+  // Menyudagi havola bosilganda ham — avval saqlash (beforeunload ichki o'tishda ishlamaydi)
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      const a = (e.target as HTMLElement | null)?.closest?.("a[href]") as HTMLAnchorElement | null;
+      if (!a || a.target === "_blank" || a.hasAttribute("download")) return;
+      const url = new URL(a.href, window.location.href);
+      if (url.origin !== window.location.origin) return;
+      if (!rowsRef.current.some((r) => r.status !== "saved" && hasContent(r))) return;
+      e.preventDefault();
+      e.stopPropagation();
+      void flushRef.current().then((ok) => ok && router.push(url.pathname + url.search));
+    };
+    document.addEventListener("click", onClick, true);
+    return () => document.removeEventListener("click", onClick, true);
+  }, [router]);
+
+  async function changeDay(patch: { siteId?: number; date?: string }) {
+    if (!(await flushUnsaved())) return;
+    setNotice(null);
     if (patch.siteId !== undefined) setSiteId(patch.siteId);
     if (patch.date !== undefined) setDate(patch.date > today ? today : patch.date);
   }
@@ -251,7 +369,7 @@ export function DailyLedger(props: {
   function shiftDate(days: number) {
     const d = new Date(`${date}T00:00:00Z`);
     d.setUTCDate(d.getUTCDate() + days);
-    changeDay({ date: d.toISOString().slice(0, 10) });
+    void changeDay({ date: d.toISOString().slice(0, 10) });
   }
 
   const updateRow = useCallback((key: string, patch: Partial<Row>) => {
@@ -260,38 +378,59 @@ export function DailyLedger(props: {
 
   function setField(key: string, patch: Partial<Row>) {
     setRows((rs) =>
-      rs.map((r) => (r.key === key ? { ...r, ...patch, message: null, status: (r.id ? "dirty" : "draft") as RowStatus } : r))
+      rs.map((r) => {
+        if (r.key !== key) return r;
+        let next: Row = { ...r, ...patch, message: null, status: (r.id ? "dirty" : "draft") as RowStatus, rev: r.rev + 1 };
+        if ("unitPrice" in patch) next.priceDerived = false; // narxni o'zi yozdi
+        if (next.amountTouched && next.priceDerived && ("quantity" in patch || "amount" in patch)) {
+          // Narx summadan olingan — summa (fakt) joyida qoladi, narx qayta hisoblanadi
+          next = withDerivedPrice(next);
+        } else if (r.amountTouched && ("quantity" in patch || "unitPrice" in patch) && !("adjustReason" in patch)) {
+          // Summa qo'lda yozilgan qatorda miqdor/narx o'zgarsa — farq ham o'zgaradi,
+          // eski sabab jimgina qolib ketmasin: foydalanuvchi qaytadan tasdiqlaydi.
+          next.adjustReason = "";
+        }
+        return next;
+      })
     );
   }
 
-  /** Narx yozilmay faqat summa yozilsa — narx summadan hisoblanadi ("6 дона, 170 000" → 28 333). */
+  /** Summa katagidan chiqildi: formatlanadi, kerak bo'lsa narx summadan olinadi, xato holati tozalanadi. */
   function onAmountBlur(key: string) {
     const r = rowsRef.current.find((x) => x.key === key);
     if (!r || !r.amountTouched) return;
     const paid = parseSom(r.amount);
     if (paid === null) return;
-    const patch: Partial<Row> = { amount: formatSom(paid) };
-    const q = parseQuantityMilli(r.quantity);
-    if (!r.unitPrice.trim() && q && q > 0n) {
-      const price = (paid * 1000n + q / 2n) / q;
-      patch.unitPrice = formatSom(price);
-      if (computeAmount(q, price) !== paid) patch.adjustReason = r.adjustReason || "Яхлитлаш (нарх суммадан ҳисобланди)";
-    }
-    const c = computed({ quantity: r.quantity, unitPrice: patch.unitPrice ?? r.unitPrice });
-    if (c !== null && c === paid) patch.amountTouched = false; // farq yo'q — avtomatik rejimga qaytamiz
-    updateRow(key, patch);
+    let next = withDerivedPrice({ ...r, amount: formatSom(paid) });
+    // Qo'lda yozilgan summa miqdor × narxga teng — avtomatik rejimga qaytamiz (narxni o'zi yozgan bo'lsa)
+    if (!next.priceDerived && computed(next) === paid) next = { ...next, amountTouched: false };
+    if (next.status === "error") next = { ...next, status: next.id ? "dirty" : "draft", message: null };
+    setRows((rs) => rs.map((x) => (x.key === key ? next : x)));
   }
 
-  async function saveRow(key: string, allowDuplicate = false) {
-    const r = rowsRef.current.find((x) => x.key === key);
-    if (!r || r.status === "saving" || r.status === "saved" || !hasContent(r) || !siteId) return;
+  /** true — qator saqlangan (yoki bo'sh). Bitta qator uchun bir vaqtda faqat bitta so'rov. */
+  function saveRow(key: string, allowDuplicate = false): Promise<boolean> {
+    const pending = inFlight.current.get(key);
+    if (pending) return pending;
+    const p = doSave(key, allowDuplicate).finally(() => inFlight.current.delete(key));
+    inFlight.current.set(key, p);
+    return p;
+  }
+
+  async function doSave(key: string, allowDuplicate: boolean): Promise<boolean> {
+    const found = rowsRef.current.find((x) => x.key === key);
+    if (!found || !siteId) return false;
+    if (found.status === "saved" || !hasContent(found)) return true;
+    const r = withDerivedPrice(found);
+    const derived = { unitPrice: r.unitPrice, priceDerived: r.priceDerived, adjustReason: r.adjustReason };
     const problem = validate(r);
     if (problem) {
-      updateRow(key, { status: "error", message: problem });
-      return;
+      updateRow(key, { ...derived, status: "error", message: problem });
+      return false;
     }
-    updateRow(key, { status: "saving", message: null });
+    updateRow(key, { ...derived, status: "saving", message: null });
     lastPayer.current = r.payer;
+    const sentRev = r.rev;
 
     const debt = r.payer === DEBT;
     const body = {
@@ -315,11 +454,20 @@ export function DailyLedger(props: {
         body: JSON.stringify(body),
       });
       const data = await res.json().catch(() => null);
-      if (res.ok) setRows((rs) => rs.map((x) => (x.key === key ? fromEntry(data.row as EntryRow, key) : x)));
-      else if (res.status === 409 && data?.code === "DUPLICATE") updateRow(key, { status: "dup", message: data.error });
+      if (res.ok) {
+        const savedRow = fromEntry(data.row as EntryRow, key);
+        // Saqlash paytida foydalanuvchi shu qatorni o'zgartirgan bo'lsa — uning o'zgarishi qoladi
+        setRows((rs) =>
+          rs.map((x) => (x.key !== key ? x : x.rev === sentRev ? savedRow : { ...x, id: savedRow.id, canModify: savedRow.canModify, status: "dirty" }))
+        );
+        return true;
+      }
+      if (res.status === 409 && data?.code === "DUPLICATE") updateRow(key, { status: "dup", message: data.error });
       else updateRow(key, { status: "error", message: data?.error ?? "Сақланмади" });
+      return false;
     } catch {
       updateRow(key, { status: "error", message: "Тармоқ хатоси — қайта уриниб кўринг" });
+      return false;
     }
   }
 
@@ -360,12 +508,11 @@ export function DailyLedger(props: {
 
   function focusNext(index: number, col: Col) {
     const r = rowsRef.current[index];
-    requestAnimationFrame(() => {
-      for (const c of COLS.slice(COLS.indexOf(col) + 1)) {
-        const el = cellRefs.current.get(`${r.key}:${c}`) as HTMLInputElement | undefined;
-        if (el && !el.disabled) return el.focus();
-      }
-    });
+    // Darhol (keyingi kadrda emas): aks holda tez yozilgan raqam hali eski katakka tushadi
+    for (const c of COLS.slice(COLS.indexOf(col) + 1)) {
+      const el = cellRefs.current.get(`${r.key}:${c}`) as HTMLInputElement | undefined;
+      if (el && !el.disabled) return el.focus();
+    }
   }
 
   function onGridKey(e: React.KeyboardEvent<HTMLElement>, index: number, col: Col) {
@@ -416,7 +563,8 @@ export function DailyLedger(props: {
   const dayTotal = saved.reduce((a, r) => a + (effective(r) ?? 0n), 0n);
   const byPayer = new Map<string, bigint>();
   for (const r of saved) byPayer.set(r.payer, (byPayer.get(r.payer) ?? 0n) + (effective(r) ?? 0n));
-  const payerName = (p: string) => (p === DEBT ? "Қарзга" : (accounts.find((a) => String(a.id) === p)?.name ?? "—"));
+  const allAccounts = [...accounts, ...extraAccounts];
+  const payerName = (p: string) => (p === DEBT ? DEBT_LABEL : (allAccounts.find((a) => String(a.id) === p)?.name ?? "—"));
 
   return (
     <div>
@@ -428,7 +576,7 @@ export function DailyLedger(props: {
             <button
               key={s.id}
               type="button"
-              onClick={() => s.id !== siteId && changeDay({ siteId: s.id })}
+              onClick={() => s.id !== siteId && void changeDay({ siteId: s.id })}
               className={`h-[44px] px-5 border rounded-[4px] text-[16px] ${
                 s.id === siteId ? "bg-accent text-white border-accent font-semibold" : "bg-paper border-line hover:bg-canvas"
               }`}
@@ -446,13 +594,13 @@ export function DailyLedger(props: {
             className="field text-[16px]"
             value={date}
             max={today}
-            onChange={(e) => e.target.value && changeDay({ date: e.target.value })}
+            onChange={(e) => e.target.value && void changeDay({ date: e.target.value })}
           />
           <button type="button" className="btn" onClick={() => shiftDate(1)} disabled={date >= today} title="Кейинги кун">
             ▶
           </button>
           {date !== today && (
-            <button type="button" className="btn" onClick={() => changeDay({ date: today })}>
+            <button type="button" className="btn" onClick={() => void changeDay({ date: today })}>
               Бугун
             </button>
           )}
@@ -476,6 +624,7 @@ export function DailyLedger(props: {
         </div>
       )}
       {loadError && <div className="mb-3 px-4 py-2 bg-err-soft text-minus border border-line">{loadError}</div>}
+      {notice && <div className="mb-3 px-4 py-2 bg-warn-soft text-warn border border-line">{notice}</div>}
 
       {site && (
         <div className="overflow-x-auto border border-line bg-paper">
@@ -503,7 +652,7 @@ export function DailyLedger(props: {
                 const cls = rowLocked && r.id ? "row-locked" : r.status === "dup" ? "row-dup" : r.status === "error" ? "row-error" : r.status === "saved" ? "row-saved" : "row-draft";
                 const key = (col: Col) => (e: React.KeyboardEvent<HTMLElement>) => onGridKey(e, i, col);
                 return (
-                  <RowGroup key={r.key}>
+                  <Fragment key={r.key}>
                     <tr
                       className={cls}
                       onBlur={(e) => {
@@ -526,7 +675,7 @@ export function DailyLedger(props: {
                           onGridKey={key("item")}
                           onPickedWithEnter={() => focusNext(i, "item")}
                           inputRef={reg(r.key, "item")}
-                          onCreate={(text) => setDialog({ mode: "item", rowKey: r.key, text })}
+                          onCreate={props.canAddNames ? (text) => setDialog({ mode: "item", rowKey: r.key, text }) : undefined}
                           createLabel="Янги ном қўшиш"
                         />
                       </td>
@@ -584,12 +733,12 @@ export function DailyLedger(props: {
                           onKeyDown={key("payer")}
                         >
                           <option value="">— танланг —</option>
-                          {accounts.map((a) => (
+                          {allAccounts.map((a) => (
                             <option key={a.id} value={a.id}>
                               {a.name}
                             </option>
                           ))}
-                          <option value={DEBT}>Қарзга (етказиб берувчи ҳисобига)</option>
+                          <option value={DEBT}>{DEBT_LABEL} (қарз ёки аванс)</option>
                         </select>
                       </td>
                       <td>
@@ -603,7 +752,7 @@ export function DailyLedger(props: {
                           onGridKey={key("supplier")}
                           onPickedWithEnter={() => focusNext(i, "supplier")}
                           inputRef={reg(r.key, "supplier")}
-                          onCreate={(text) => setDialog({ mode: "supplier", rowKey: r.key, text })}
+                          onCreate={props.canAddNames ? (text) => setDialog({ mode: "supplier", rowKey: r.key, text }) : undefined}
                           createLabel="Янги етказиб берувчи"
                         />
                       </td>
@@ -666,6 +815,17 @@ export function DailyLedger(props: {
                       </tr>
                     )}
 
+                    {r.payer !== DEBT && r.payer !== "" && r.supplierId && !rowLocked && r.status !== "saved" && (
+                      <tr className="row-draft">
+                        <td />
+                        <td colSpan={9} className="px-3 py-1.5 text-[14px] text-ink-2">
+                          Эслатма: бу — нахт харид (пул ҳозир тўланди, товар ҳозир келди). Агар бу пул олдин «{DEBT_LABEL}» олинган товар
+                          учун бўлса — уни бу ерда эмас, «Етказиб берувчилар» бўлимида «Заводга пул ўтказилди» деб ёзинг, акс ҳолда
+                          харажат икки марта ҳисобланади.
+                        </td>
+                      </tr>
+                    )}
+
                     {r.message && (
                       <tr className={r.status === "dup" ? "row-dup" : "row-error"}>
                         <td />
@@ -706,7 +866,7 @@ export function DailyLedger(props: {
                         </td>
                       </tr>
                     )}
-                  </RowGroup>
+                  </Fragment>
                 );
               })}
             </tbody>
@@ -767,7 +927,7 @@ export function DailyLedger(props: {
               siteId={siteId}
               date={date}
               today={today}
-              onSaved={() => setReloadTick((t) => t + 1)}
+              onSaved={() => void reloadIncomes()}
             />
           )}
         </section>
@@ -809,8 +969,4 @@ function StatusMark({ status }: { status: RowStatus }) {
   if (status === "dirty") return <span className="text-warn" title="Сақланмаган ўзгариш">●</span>;
   if (status === "dup" || status === "error") return <span className="text-minus">!</span>;
   return null;
-}
-
-function RowGroup({ children }: { children: React.ReactNode }) {
-  return <>{children}</>;
 }

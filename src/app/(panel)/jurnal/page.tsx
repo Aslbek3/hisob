@@ -142,7 +142,7 @@ export default async function JurnalPage({ searchParams }: { searchParams: SP })
                   {office && <td className="text-[14px]">{KIND_LABEL[r.kind]}</td>}
                   <td>{r.siteName ?? "—"}</td>
                   <td className="whitespace-nowrap">
-                    {r.kind === "GOODS_RECEIPT" ? "Қарзга" : r.accountName}
+                    {r.kind === "GOODS_RECEIPT" ? "Етказиб берувчи ҳисобидан" : r.accountName}
                     {r.toAccountName && <> → {r.toAccountName}</>}
                   </td>
                   <td>

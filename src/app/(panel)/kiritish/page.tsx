@@ -37,6 +37,7 @@ export default async function DaftarPage({ searchParams }: { searchParams: SP })
         closedMonths={[...closed]}
         focusId={num("focus")}
         showIncome={isOffice(user)}
+        canAddNames={isOffice(user)}
       />
     </>
   );

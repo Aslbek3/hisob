@@ -36,6 +36,12 @@ export function ComboCell(p: Props) {
   const [rect, setRect] = useState<DOMRect | null>(null);
   const localRef = useRef<HTMLInputElement | null>(null);
   const listRef = useRef<HTMLUListElement | null>(null);
+  /**
+   * Ro'yxatdan hozirgina tanlandi — keyingi blur yozilgan matnga qarab qayta tanlamasin.
+   * (Enter'dan keyin fokus darhol keyingi katakka o'tadi; blur paytida "text" hali eski:
+   * "Мих" yozib "Мих 100 лик" tanlansa, blur aynan mos "Мих"ni qaytarib qo'yardi.)
+   */
+  const justChosen = useRef(false);
 
   const query = nameKey(text ?? "");
   const matches = useMemo(() => {
@@ -77,6 +83,7 @@ export function ComboCell(p: Props) {
   }
 
   function choose(o: ComboOption | null) {
+    justChosen.current = true;
     p.onChange(o ? o.id : null);
     setText(null);
     setOpen(false);
@@ -140,6 +147,12 @@ export function ComboCell(p: Props) {
   }
 
   function onBlur() {
+    if (justChosen.current) {
+      justChosen.current = false;
+      setText(null);
+      setOpen(false);
+      return;
+    }
     if (text === null) {
       setOpen(false);
       return;
@@ -168,6 +181,7 @@ export function ComboCell(p: Props) {
         placeholder={p.placeholder}
         disabled={p.disabled}
         onChange={(e) => {
+          justChosen.current = false;
           setText(e.target.value);
           if (!open) openList();
           else setHi(0);

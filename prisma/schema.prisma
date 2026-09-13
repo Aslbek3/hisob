@@ -1,13 +1,13 @@
-// Qurilish kirim-chiqim tizimi — ma'lumotlar bazasi sxemasi (1-bosqich)
+// Qurilish kirim-chiqim tizimi — ma'lumotlar bazasi sxemasi
 //
 // Asosiy tamoyillar:
 //  • Pul — BigInt, so'mda, kasrsiz. Float hech qayerda yo'q.
-//  • Miqdor — Decimal(14,3) (2.5 t, 0.75 m³). Summa = round(miqdor × narx),
-//    faqat serverda hisoblanadi va DB CHECK bilan ham kafolatlanadi.
+//  • Miqdor — Decimal(14,3) (2.5 t, 0.75 m³). Summa — to'langan pul (fakt); odatda
+//    = round(miqdor × narx), farq bo'lsa sababi majburiy (DB CHECK ham shuni talab qiladi).
 //  • Hech narsa o'chirilmaydi: yozuv — status CANCELLED, spravochnik — isActive=false,
 //    ob'ekt — ARCHIVED. Barcha bog'lanishlar ON DELETE RESTRICT.
 //  • Barcha pul harakati bitta `entries` jadvalida — kassa qoldig'i, ob'ekt
-//    xarajati va (keyinchalik) zavod qoldig'i shu jadvaldan hisoblanadi.
+//    xarajati va yetkazib beruvchi (zavod) qoldig'i shu jadvaldan hisoblanadi.
 //  • Keyingi bosqichlar faqat yangi jadval va nullable ustun qo'shadi,
 //    mavjud jadvallar qayta yozilmaydi (pastdagi izohlarga qarang).
 
@@ -135,7 +135,6 @@ model SiteAssignment {
 model Category {
   id         Int     @id @default(autoincrement())
   name       String  @unique
-  isMaterial Boolean @default(false) @map("is_material") // true → yozuvda material majburiy
   isActive   Boolean @default(true) @map("is_active")
   sortOrder  Int     @default(0) @map("sort_order")
 

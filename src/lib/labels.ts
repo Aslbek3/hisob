@@ -11,7 +11,7 @@ export const KIND_LABEL: Record<EntryKind, string> = {
   EXPENSE: "Харажат",
   TRANSFER: "Ўтказма",
   SUPPLIER_PAYMENT: "Етказиб берувчига тўлов",
-  GOODS_RECEIPT: "Қарзга олинди",
+  GOODS_RECEIPT: "Етказиб берувчи ҳисобидан",
 };
 
 export const ACCOUNT_TYPE_LABEL: Record<AccountType, string> = {

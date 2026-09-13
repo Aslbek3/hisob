@@ -5,6 +5,7 @@ import { unitLabel } from "@/lib/units";
 import { PageHeader } from "@/components/PageHeader";
 import { Money } from "@/components/Money";
 import { ExportLink } from "@/components/ExportLink";
+import { BalanceLabel } from "@/components/BalanceLabel";
 import { getPeriodReport } from "@/services/reports";
 import { getEntryOptions } from "@/services/reference";
 
@@ -131,6 +132,65 @@ export default async function ReportPage({ searchParams }: { searchParams: SP })
           )}
         </section>
       ))}
+
+      {/* Excel'ga shular ham tushadi — yuborishdan oldin ko'rib chiqsin */}
+      {report.incomes.length > 0 && (
+        <section className="mb-8">
+          <h2 className="text-[17px] font-semibold mb-2">Келган пул (кирим)</h2>
+          <table className="tbl border border-line max-w-[900px]">
+            <thead>
+              <tr>
+                <th>Сана</th>
+                <th>Кимдан</th>
+                <th>Объект</th>
+                <th>Қайси ҳисобга</th>
+                <th className="num">Сумма</th>
+                <th>Изоҳ</th>
+              </tr>
+            </thead>
+            <tbody>
+              {report.incomes.map((e) => (
+                <tr key={e.id}>
+                  <td className="whitespace-nowrap">{formatDate(e.date)}</td>
+                  <td>{e.counterpartyName}</td>
+                  <td>{e.siteName ?? "—"}</td>
+                  <td>{e.accountName}</td>
+                  <td className="num font-medium"><Money value={e.amount} /></td>
+                  <td>{e.note}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      )}
+
+      {report.suppliers.some((s) => s.paid || s.received) && (
+        <section className="mb-8">
+          <h2 className="text-[17px] font-semibold mb-2">Етказиб берувчилар билан ҳисоб (бугунги ҳолат)</h2>
+          <table className="tbl border border-line max-w-[900px]">
+            <thead>
+              <tr>
+                <th>Номи</th>
+                <th className="num">Тўланган</th>
+                <th className="num">Олинган товар</th>
+                <th>Ҳолат</th>
+              </tr>
+            </thead>
+            <tbody>
+              {report.suppliers
+                .filter((s) => s.paid || s.received)
+                .map((s) => (
+                  <tr key={s.id}>
+                    <td>{s.name}</td>
+                    <td className="num"><Money value={s.paid} /></td>
+                    <td className="num"><Money value={s.received} /></td>
+                    <td><BalanceLabel value={s.balance} /></td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        </section>
+      )}
     </>
   );
 

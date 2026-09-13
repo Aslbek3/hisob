@@ -19,6 +19,28 @@ export function errorResponse(message: string, status: number, extra?: Record<st
 }
 
 /**
+ * O'zgartiruvchi so'rov shu saytning o'zidan kelganmi (CSRF'ga qarshi qo'shimcha qatlam;
+ * asosiy himoya — SameSite=Lax cookie). Brauzer Origin yubormasa (curl) — o'tkaziladi.
+ * Nginx orqasida Host sarlavhasi saqlanishi shart: proxy_set_header Host $host.
+ */
+export function isSameOrigin(request: Request): boolean {
+  if (request.method === "GET" || request.method === "HEAD") return true;
+  const origin = request.headers.get("origin");
+  if (!origin) return true;
+  try {
+    return new URL(origin).host === request.headers.get("host");
+  } catch {
+    return false;
+  }
+}
+
+/** Zod'ning inglizcha standart xabari foydalanuvchiga chiqmasin — faqat biz yozgan (kirill) xabar. */
+function zodMessage(error: ZodError): string {
+  const first = error.issues[0];
+  return first && /[Ѐ-ӿ]/.test(first.message) ? first.message : "Маълумот нотўғри тўлдирилган";
+}
+
+/**
  * Har bir API route shu orqali o'tadi:
  *   1) sessiya tekshiruvi (yo'q bo'lsa 401),
  *   2) `check` — permissions.ts dagi ruxsat funksiyasi (false bo'lsa 403),
@@ -29,6 +51,7 @@ export async function withUser(
   check: (user: SessionUser) => boolean,
   handler: (user: SessionUser) => Promise<Response>
 ): Promise<Response> {
+  if (!isSameOrigin(request)) return errorResponse(forbidden().message, 403);
   const user = await getSessionUser();
   if (!user) return errorResponse("Тизимга қайта киринг", 401);
   if (!check(user)) return errorResponse(forbidden().message, 403);
@@ -40,8 +63,7 @@ export async function withUser(
       return errorResponse(error.message, error.status, { code: error.code, details: error.details });
     }
     if (error instanceof ZodError) {
-      const first = error.issues[0];
-      return errorResponse(first?.message ?? "Маълумот нотўғри", 400, { code: "VALIDATION" });
+      return errorResponse(zodMessage(error), 400, { code: "VALIDATION" });
     }
     logError(error, { path: new URL(request.url).pathname, method: request.method, userId: user.id });
     return errorResponse("Серверда хатолик. Қайта уриниб кўринг.", 500);

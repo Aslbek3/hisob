@@ -33,7 +33,7 @@ export default async function EntryPage({ params }: { params: Promise<{ id: stri
     ["Тури", KIND_LABEL[e.kind]],
     ["Сана", formatDate(e.date)],
     ...(e.siteName ? [["Объект", e.siteName] as [string, React.ReactNode]] : []),
-    [e.kind === "TRANSFER" ? "Қайси ҳисобдан" : e.kind === "INCOME" ? "Қайси ҳисобга" : "Ким тўлади", e.kind === "GOODS_RECEIPT" ? "Қарзга" : e.accountName],
+    [e.kind === "TRANSFER" ? "Қайси ҳисобдан" : e.kind === "INCOME" ? "Қайси ҳисобга" : "Ким тўлади", e.kind === "GOODS_RECEIPT" ? "Етказиб берувчи ҳисобидан" : e.accountName],
     ...(e.toAccountName ? [["Қайси ҳисобга", e.toAccountName] as [string, React.ReactNode]] : []),
     ...(e.materialName ? [["Номи", e.materialName] as [string, React.ReactNode]] : []),
     ...(e.categoryName ? [["Категория", e.categoryName] as [string, React.ReactNode]] : []),

@@ -27,7 +27,9 @@ export async function exportPeriodReport(user: SessionUser, q: { siteId?: number
   const report = await getPeriodReport(user, q);
   const sheets: ExcelSheet<any>[] = [];
 
-  for (const s of report.sites) {
+  // Bo'sh ob'ektlar uchun bo'sh varaq chiqmasin (hammasi bo'sh bo'lsa — bittasi qoladi)
+  const withData = report.sites.filter((s) => s.days.length > 0);
+  for (const s of withData.length ? withData : report.sites.slice(0, 1)) {
     const rows: ReportRow[] = [];
     for (const d of s.days) {
       rows.push(...d.lines);
@@ -114,26 +116,33 @@ export async function exportPeriodReport(user: SessionUser, q: { siteId?: number
 
 // ───────────────────────────── Yetkazib beruvchi: solishtirish dalolatnomasi ─────────────────────────────
 
+type OpeningRow = { opening: true; balance: bigint };
+type StatementLine = SupplierStatementRow | OpeningRow;
+const isOpening = (r: StatementLine): r is OpeningRow => "opening" in r;
+
 export async function exportSupplierStatement(user: SessionUser, supplierId: number, q: { from?: string; to?: string }): Promise<ExportFile> {
   const st = await getSupplierStatement(user, supplierId, q);
+  // Davr boshidagi qoldiq — birinchi raqamli qator: "boshlang'ich + tushum − chiqim = yakuniy" Excel'da ham tekshiriladi
+  const rows: StatementLine[] = [...(st.from ? [{ opening: true as const, balance: st.opening }] : []), ...st.rows];
   const buffer = await buildWorkbook([
     sheet({
       name: "Солиштириш",
       title: `Солиштириш далолатномаси: ${st.supplier.name}`,
-      subtitle: `Давр: ${period(st.from, st.to)}. Давр бошига қолдиқ: ${st.opening.toString()} сўм (мусбат — бизга товар қарз, манфий — биз пул қарзмиз)`,
+      subtitle: `Давр: ${period(st.from, st.to)}. Қолдиқ: мусбат — бизга товар қарз, манфий — биз пул қарзмиз.`,
       columns: [
-        { header: "Сана", width: 11, kind: "date", value: (r: SupplierStatementRow) => excelDate(r.date) },
-        { header: "Объект", width: 20, value: (r) => r.siteName },
-        { header: "Номи", width: 28, value: (r) => (r.kind === "SUPPLIER_PAYMENT" ? "Пул ўтказилди" : r.materialName) },
-        { header: "Миқдори", width: 10, kind: "qty", value: (r) => (r.kind === "SUPPLIER_PAYMENT" ? null : Number(r.quantity)) },
-        { header: "Бирлиги", width: 8, value: (r) => (r.unit ? unitLabel(r.unit) : null) },
-        { header: "Нархи", width: 13, kind: "money", value: (r) => (r.kind === "SUPPLIER_PAYMENT" ? null : BigInt(r.unitPrice)) },
-        { header: "Олинди (товар)", width: 16, kind: "money", value: (r) => (r.received ? r.received : null) },
-        { header: "Тўланди (пул)", width: 16, kind: "money", value: (r) => (r.paid ? r.paid : null) },
-        { header: "Қолдиқ", width: 16, kind: "money", value: (r) => r.running },
-        { header: "Изоҳ", width: 26, value: (r) => [r.accountName, r.note].filter(Boolean).join(" · ") || null },
+        { header: "Сана", width: 11, kind: "date", value: (r: StatementLine) => (isOpening(r) ? (st.from ? excelDate(st.from) : null) : excelDate(r.date)) },
+        { header: "Объект", width: 20, value: (r) => (isOpening(r) ? null : r.siteName) },
+        { header: "Номи", width: 28, value: (r) => (isOpening(r) ? "Давр бошига қолдиқ" : r.kind === "SUPPLIER_PAYMENT" ? "Пул ўтказилди" : r.materialName) },
+        { header: "Миқдори", width: 10, kind: "qty", value: (r) => (isOpening(r) || r.kind === "SUPPLIER_PAYMENT" ? null : Number(r.quantity)) },
+        { header: "Бирлиги", width: 8, value: (r) => (isOpening(r) || !r.unit ? null : unitLabel(r.unit)) },
+        { header: "Нархи", width: 13, kind: "money", value: (r) => (isOpening(r) || r.kind === "SUPPLIER_PAYMENT" ? null : BigInt(r.unitPrice)) },
+        { header: "Олинди (товар)", width: 16, kind: "money", value: (r) => (isOpening(r) ? null : r.received || null) },
+        { header: "Тўланди (пул)", width: 16, kind: "money", value: (r) => (isOpening(r) ? null : r.paid || null) },
+        { header: "Қолдиқ", width: 16, kind: "money", value: (r) => (isOpening(r) ? r.balance : r.running) },
+        { header: "Изоҳ", width: 26, value: (r) => (isOpening(r) ? null : [r.accountName, r.note].filter(Boolean).join(" · ") || null) },
       ],
-      rows: st.rows,
+      rows,
+      rowKind: (r) => (isOpening(r) ? "subtotal" : "normal"),
       totals: { 6: st.received, 7: st.paid, 8: st.closing },
       totalsLabel: "ЖАМИ",
     }),
