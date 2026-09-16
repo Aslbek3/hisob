@@ -50,35 +50,37 @@ export function AuditTrail({
   rows: { id: string; at: string; userName: string; action: AuditAction; before: Prisma.JsonValue; after: Prisma.JsonValue; reason: string | null }[];
 }) {
   return (
-    <table className="tbl max-w-[820px] border border-line">
-      <thead>
-        <tr>
-          <th>Вақт</th>
-          <th>Ким</th>
-          <th>Амал</th>
-          <th>Тафсилот</th>
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((a) => {
-          const changes = a.action === "UPDATE" && a.before && a.after ? diff(a.before as Snapshot, a.after as Snapshot) : [];
-          return (
-            <tr key={a.id}>
-              <td className="whitespace-nowrap">{formatDateTime(a.at)}</td>
-              <td>{a.userName}</td>
-              <td>{ACTION_LABEL[a.action] ?? a.action}</td>
-              <td>
-                {changes.map((c) => (
-                  <div key={c.field}>
-                    <span className="text-ink-3">{c.field}:</span> {c.from} → <b>{c.to}</b>
-                  </div>
-                ))}
-                {a.reason && <div>Сабаб: {a.reason}</div>}
-              </td>
-            </tr>
-          );
-        })}
-      </tbody>
-    </table>
+    <div className="overflow-x-auto border border-line max-w-[820px]">
+      <table className="tbl">
+        <thead>
+          <tr>
+            <th>Вақт</th>
+            <th>Ким</th>
+            <th>Амал</th>
+            <th>Тафсилот</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((a) => {
+            const changes = a.action === "UPDATE" && a.before && a.after ? diff(a.before as Snapshot, a.after as Snapshot) : [];
+            return (
+              <tr key={a.id}>
+                <td className="whitespace-nowrap">{formatDateTime(a.at)}</td>
+                <td>{a.userName}</td>
+                <td>{ACTION_LABEL[a.action] ?? a.action}</td>
+                <td>
+                  {changes.map((c) => (
+                    <div key={c.field}>
+                      <span className="text-ink-3">{c.field}:</span> {c.from} → <b>{c.to}</b>
+                    </div>
+                  ))}
+                  {a.reason && <div>Сабаб: {a.reason}</div>}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
   );
 }

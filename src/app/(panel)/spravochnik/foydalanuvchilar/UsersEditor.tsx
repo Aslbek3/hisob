@@ -49,44 +49,46 @@ export function UsersEditor({
 
   return (
     <div className="flex flex-wrap gap-6 items-start">
-      <div className="flex-1 min-w-[520px]">
+      <div className="flex-1 min-w-0 w-full md:min-w-[520px] md:w-auto">
         <button className="btn mb-2" onClick={() => start("new")}>
           + Фойдаланувчи
         </button>
-        <table className="tbl border border-line">
-          <thead>
-            <tr>
-              <th>Исм</th>
-              <th>Логин</th>
-              <th>Рол</th>
-              <th>Объектлари</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {users.map((u) => (
-              <tr key={u.id} className={u.isActive ? "" : "text-ink-3"}>
-                <td>
-                  {u.name}
-                  {!u.isActive && <span className="ml-2 text-[12px]">блокланган</span>}
-                </td>
-                <td className="font-mono text-[13px]">{u.login}</td>
-                <td>{ROLE_LABEL[u.role]}</td>
-                <td className="text-[13px]">{u.role === "FOREMAN" ? u.siteNames.join(", ") || "—" : "ҳаммаси"}</td>
-                <td className="text-right">
-                  <button className="link text-[13px]" onClick={() => start(u.id)}>
-                    Таҳрирлаш
-                  </button>
-                </td>
+        <div className="overflow-x-auto border border-line">
+          <table className="tbl">
+            <thead>
+              <tr>
+                <th>Исм</th>
+                <th>Логин</th>
+                <th>Рол</th>
+                <th>Объектлари</th>
+                <th />
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {users.map((u) => (
+                <tr key={u.id} className={u.isActive ? "" : "text-ink-3"}>
+                  <td>
+                    {u.name}
+                    {!u.isActive && <span className="ml-2 text-[12px]">блокланган</span>}
+                  </td>
+                  <td className="font-mono text-[13px]">{u.login}</td>
+                  <td>{ROLE_LABEL[u.role]}</td>
+                  <td className="text-[13px]">{u.role === "FOREMAN" ? u.siteNames.join(", ") || "—" : "ҳаммаси"}</td>
+                  <td className="text-right">
+                    <button className="link text-[13px]" onClick={() => start(u.id)}>
+                      Таҳрирлаш
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {editing !== null && (
         <form
-          className="w-[340px] bg-paper border border-line p-4 flex flex-col gap-3"
+          className="w-full md:w-[340px] bg-paper border border-line p-4 flex flex-col gap-3"
           onSubmit={(e) => {
             e.preventDefault();
             void save();

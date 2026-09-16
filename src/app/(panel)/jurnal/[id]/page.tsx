@@ -77,16 +77,18 @@ export default async function EntryPage({ params }: { params: Promise<{ id: stri
         </div>
       )}
 
-      <table className="tbl max-w-[620px] border border-line mb-6">
-        <tbody>
-          {rows.map(([label, value]) => (
-            <tr key={label}>
-              <td className="w-[180px] text-ink-3">{label}</td>
-              <td>{value}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div className="overflow-x-auto border border-line max-w-[620px] mb-6">
+        <table className="tbl">
+          <tbody>
+            {rows.map(([label, value]) => (
+              <tr key={label}>
+                <td className="w-[180px] text-ink-3">{label}</td>
+                <td>{value}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
       {audit.length > 0 && (
         <section>

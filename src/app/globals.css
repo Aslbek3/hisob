@@ -185,3 +185,12 @@ body {
 .link:hover {
   text-decoration: underline;
 }
+
+/* ── Mobil: barmoq bilan bosiladigan joylar kattaroq (Kunlik daftar jadvali
+   bundan mustasno — .cell alohida klass, tegilmaydi). ── */
+@media (max-width: 640px) {
+  .btn,
+  .field {
+    min-height: 44px;
+  }
+}

@@ -31,9 +31,9 @@ export default async function PanelLayout({ children }: { children: React.ReactN
   ];
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen flex flex-col md:flex-row">
       <Sidebar main={main} more={more} userName={user.name} roleLabel={ROLE_LABEL[user.role]} />
-      <main className="flex-1 min-w-0 px-6 py-5">{children}</main>
+      <main className="flex-1 min-w-0 px-4 py-4 md:px-6 md:py-5">{children}</main>
     </div>
   );
 }
