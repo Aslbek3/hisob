@@ -73,13 +73,15 @@ export type SiteCard = {
   /** Oylar × kategoriyalar jadvali (yangisi yuqorida). */
   months: { month: string; income: bigint | null; expense: bigint; byCategory: Record<number, bigint> }[];
   materials: { id: number; name: string; unit: string; quantity: string; total: bigint }[];
+  /** Kimdan qancha pul kelgani (manba bo'yicha). Prorabga ko'rsatilmaydi (null). */
+  payers: { id: number; name: string; total: bigint }[] | null;
 };
 
 export async function getSiteCard(user: SessionUser, siteId: number): Promise<SiteCard> {
   const site = await prisma.site.findUnique({ where: { id: siteId } });
   if (!site || !canViewSite(user, siteId)) throw notFound("Объект топилмади");
 
-  const [monthCat, monthIncome, materials] = await Promise.all([
+  const [monthCat, monthIncome, materials, payerTotals] = await Promise.all([
     prisma.$queryRaw<{ month: Date; category_id: number; name: string; total: bigint }[]>`
       SELECT date_trunc('month', e.date)::date AS month, c.id AS category_id, c.name, SUM(e.amount)::bigint AS total
       FROM entries e JOIN categories c ON c.id = e.category_id
@@ -94,6 +96,11 @@ export async function getSiteCard(user: SessionUser, siteId: number): Promise<Si
       FROM entries e JOIN materials m ON m.id = e.material_id
       WHERE e.status = 'ACTIVE' AND e.kind IN ('EXPENSE', 'GOODS_RECEIPT') AND e.site_id = ${siteId}
       GROUP BY m.id, m.name, m.unit ORDER BY total DESC`,
+    prisma.$queryRaw<{ id: number; name: string; total: bigint }[]>`
+      SELECT cp.id, cp.name, SUM(e.amount)::bigint AS total
+      FROM entries e JOIN counterparties cp ON cp.id = e.counterparty_id
+      WHERE e.status = 'ACTIVE' AND e.kind = 'INCOME' AND e.site_id = ${siteId}
+      GROUP BY cp.id, cp.name ORDER BY total DESC`,
   ]);
 
   const office = isOffice(user);
@@ -133,6 +140,7 @@ export async function getSiteCard(user: SessionUser, siteId: number): Promise<Si
     categories,
     months,
     materials,
+    payers: office ? payerTotals.map((p) => ({ id: p.id, name: p.name, total: p.total })) : null,
   };
 }
 

@@ -7,9 +7,10 @@ import { sendJson, useServerMutation } from "@/lib/useServerMutation";
 type Opt = { id: number; name: string };
 
 type Props =
-  | { kind: "INCOME"; payers: Opt[]; accounts: Opt[]; siteId?: number | null; date?: string; today: string; onSaved?: () => void }
+  | { kind: "INCOME"; payers: Opt[]; accounts: Opt[]; siteId: number; date?: string; today: string; onSaved?: () => void }
+  | { kind: "INCOME"; payers: Opt[]; accounts: Opt[]; sites: Opt[]; date?: string; today: string; onSaved?: () => void }
   | { kind: "TRANSFER"; accounts: Opt[]; date?: string; today: string; onSaved?: () => void }
-  | { kind: "SUPPLIER_PAYMENT"; supplierId: number; accounts: Opt[]; date?: string; today: string; onSaved?: () => void };
+  | { kind: "SUPPLIER_PAYMENT"; supplierId: number; accounts: Opt[]; sites: Opt[]; date?: string; today: string; onSaved?: () => void };
 
 const TITLES = {
   INCOME: { from: "Кимдан", to: "Қайси ҳисобга", button: "Кирим қўшиш" },
@@ -26,6 +27,7 @@ export function MoneyMoveForm(props: Props) {
   const [date, setDate] = useState(props.date ?? props.today);
   const [from, setFrom] = useState<string>("");
   const [to, setTo] = useState<string>("");
+  const [site, setSite] = useState<string>("");
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
   const [dupMessage, setDupMessage] = useState<string | null>(null);
@@ -36,10 +38,15 @@ export function MoneyMoveForm(props: Props) {
     const base = { kind: props.kind, date: props.date ?? date, unitPrice: amount, quantity: "1", note, allowDuplicate };
     const body =
       props.kind === "INCOME"
-        ? { ...base, counterpartyId: Number(from) || null, accountId: Number(to) || null, siteId: props.siteId ?? null }
+        ? {
+            ...base,
+            counterpartyId: Number(from) || null,
+            accountId: Number(to) || null,
+            siteId: "siteId" in props ? props.siteId : Number(site) || null,
+          }
         : props.kind === "TRANSFER"
           ? { ...base, accountId: Number(from) || null, toAccountId: Number(to) || null }
-          : { ...base, counterpartyId: props.supplierId, accountId: Number(to) || null };
+          : { ...base, counterpartyId: props.supplierId, accountId: Number(to) || null, siteId: Number(site) || null };
 
     let duplicate: string | null = null;
     const ok = await run(async () => {
@@ -58,6 +65,7 @@ export function MoneyMoveForm(props: Props) {
     if (ok) {
       setAmount("");
       setNote("");
+      setSite("");
       props.onSaved?.();
     }
   }
@@ -82,6 +90,18 @@ export function MoneyMoveForm(props: Props) {
           <select className="field min-w-[200px]" value={from} onChange={(e) => setFrom(e.target.value)} required>
             <option value="">— танланг —</option>
             {fromOptions.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.name}
+              </option>
+            ))}
+          </select>
+        </Field>
+      )}
+      {(props.kind === "SUPPLIER_PAYMENT" || (props.kind === "INCOME" && "sites" in props)) && (
+        <Field label="Объект">
+          <select className="field min-w-[200px]" value={site} onChange={(e) => setSite(e.target.value)} required>
+            <option value="">— танланг —</option>
+            {(props.kind === "SUPPLIER_PAYMENT" ? props.sites : "sites" in props ? props.sites : []).map((o) => (
               <option key={o.id} value={o.id}>
                 {o.name}
               </option>

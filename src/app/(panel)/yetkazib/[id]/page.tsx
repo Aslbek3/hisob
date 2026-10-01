@@ -122,7 +122,7 @@ export default async function SupplierPage({ params, searchParams }: { params: P
 
       <section className="bg-paper border border-line px-4 py-3">
         <h2 className="text-[17px] font-semibold mb-2">Заводга пул ўтказилди</h2>
-        <MoneyMoveForm kind="SUPPLIER_PAYMENT" supplierId={id} accounts={options.accounts} today={todayIso()} />
+        <MoneyMoveForm kind="SUPPLIER_PAYMENT" supplierId={id} accounts={options.accounts} sites={options.sites} today={todayIso()} />
         <p className="text-[13px] text-ink-3 mt-2">
           Товар келганда эса «Кунлик дафтар»да «Ким тўлади» устунида «Етказиб берувчи ҳисобидан» танланади — шу ерга ўзи тушади.
         </p>

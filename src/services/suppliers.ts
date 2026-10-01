@@ -60,6 +60,55 @@ export async function listSupplierBalances(): Promise<SupplierBalance[]> {
   });
 }
 
+export type SupplierSiteRow = { siteId: number; siteName: string; paid: bigint; received: bigint; balance: bigint };
+
+export type SupplierSiteBalances = {
+  supplier: { id: number; name: string; phone: string | null; isActive: boolean };
+  sites: SupplierSiteRow[];
+  paid: bigint;
+  received: bigint;
+  balance: bigint;
+};
+
+/**
+ * Yetkazib beruvchi qoldig'ini obyektlar bo'yicha taqsimlab beradi. Har bir
+ * yozuv (to'lov, tovar, naqd xarid) aniq bitta obyektga tegishli bo'lgani
+ * uchun (migratsiya: SUPPLIER_PAYMENT'da endi site_id majburiy), obyektlar
+ * qoldig'i yig'indisi = umumiy qoldiq — ayricha "taqsimlanmagan" qator kerak emas.
+ */
+export async function getSupplierSiteBalances(supplierId: number): Promise<SupplierSiteBalances> {
+  const supplier = await prisma.counterparty.findUnique({ where: { id: supplierId } });
+  if (!supplier || supplier.kind !== "SUPPLIER") throw notFound("Етказиб берувчи топилмади");
+
+  const rows = await prisma.$queryRaw<{ site_id: number; site_name: string; paid: bigint; received: bigint }[]>`
+    SELECT s.id AS site_id, s.name AS site_name,
+      COALESCE(SUM(e.amount) FILTER (WHERE e.kind IN ('SUPPLIER_PAYMENT', 'EXPENSE')), 0)::bigint AS paid,
+      COALESCE(SUM(e.amount) FILTER (WHERE e.kind IN ('GOODS_RECEIPT', 'EXPENSE')), 0)::bigint AS received
+    FROM entries e
+    JOIN sites s ON s.id = e.site_id
+    WHERE e.status = 'ACTIVE' AND e.counterparty_id = ${supplierId}
+    GROUP BY s.id, s.name
+    ORDER BY s.name ASC`;
+
+  const sites: SupplierSiteRow[] = rows.map((r) => ({
+    siteId: r.site_id,
+    siteName: r.site_name,
+    paid: r.paid,
+    received: r.received,
+    balance: r.paid - r.received,
+  }));
+  const paid = sites.reduce((a, s) => a + s.paid, 0n);
+  const received = sites.reduce((a, s) => a + s.received, 0n);
+
+  return {
+    supplier: { id: supplier.id, name: supplier.name, phone: supplier.phone, isActive: supplier.isActive },
+    sites,
+    paid,
+    received,
+    balance: paid - received,
+  };
+}
+
 export type SupplierStatementRow = EntryRow & { paid: bigint; received: bigint; running: bigint };
 
 export type SupplierStatement = {

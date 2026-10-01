@@ -187,10 +187,10 @@ model Counterparty {
 // ─────────────────────────── Yozuvlar (asosiy jadval) ───────────────────────────
 
 enum EntryKind {
-  INCOME // kirim: hisobga pul tushdi (ob'ekt uchun)
+  INCOME // kirim: hisobga pul tushdi, aniq bitta ob'ekt uchun (site_id majburiy)
   EXPENSE // chiqim: hisobdan pul ketdi — ob'ekt xarajati
   TRANSFER // hisoblar orasida (bankdan naqdga) — ob'ekt xarajati emas
-  SUPPLIER_PAYMENT // yetkazib beruvchiga oldindan/qarz uchun to'lov: hisob −, ob'ekt yo'q
+  SUPPLIER_PAYMENT // yetkazib beruvchiga oldindan/qarz uchun to'lov: hisob −, ob'ekt xarajati EMAS, lekin ob'ektga bog'lanadi (qoldiqni ob'ektlar bo'yicha ajratish uchun)
   GOODS_RECEIPT // tovar qarzga/oldindan to'langan pulga keldi: ob'ekt xarajati, hisob yo'q
 }
 
@@ -205,7 +205,7 @@ model Entry {
   status EntryStatus @default(ACTIVE)
   date   DateTime    @db.Date // biznes sanasi; kelajak sanasi (Toshkent vaqti) taqiqlangan
 
-  siteId         Int? @map("site_id")
+  siteId         Int? @map("site_id") // INCOME, EXPENSE, GOODS_RECEIPT, SUPPLIER_PAYMENT'da majburiy (CHECK)
   accountId      Int? @map("account_id") // pul qaysi hisobdan chiqdi / qaysi hisobga tushdi
   toAccountId    Int? @map("to_account_id") // faqat TRANSFER
   categoryId     Int? @map("category_id")
@@ -251,7 +251,8 @@ model Entry {
 }
 
 // Migratsiyaga qo'lda qo'shilgan himoya (Prisma sxemada yozib bo'lmaydi) —
-// prisma/migrations/*_init va *_suppliers_items migration.sql oxiriga qarang:
+// prisma/migrations/*_init, *_suppliers_items, *_supplier_payment_site_required
+// va *_income_site_required migration.sql'ga qarang:
 //   CHECK: amount > 0, quantity > 0
 //   CHECK: amount = round(quantity * unit_price) YOKI adjust_reason to'ldirilgan
 //   CHECK: har bir kind uchun majburiy maydonlar; CANCELLED → sabab majburiy

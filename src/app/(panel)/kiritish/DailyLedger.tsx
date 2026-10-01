@@ -924,7 +924,7 @@ export function DailyLedger(props: {
               kind="INCOME"
               payers={payers}
               accounts={accounts}
-              siteId={siteId}
+              siteId={site.id}
               date={date}
               today={today}
               onSaved={() => void reloadIncomes()}

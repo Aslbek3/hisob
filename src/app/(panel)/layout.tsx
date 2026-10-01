@@ -21,12 +21,14 @@ export default async function PanelLayout({ children }: { children: React.ReactN
     { href: "/kiritish", label: "Кунлик дафтар" },
     { href: "/hisobot", label: "Ҳисобот (Excel)" },
     ...(office ? [{ href: "/yetkazib", label: "Етказиб берувчилар" }] : []),
+    ...(office ? [{ href: "/manbalar", label: "Манбалар" }] : []),
     ...(canViewFinance(user) ? [{ href: "/hisoblar", label: "Кассалар" }] : []),
   ];
   const more: NavItem[] = [
     { href: "/obyektlar", label: "Объектлар" },
     { href: "/jurnal", label: "Барча ёзувлар" },
     ...(office ? [{ href: "/oylar", label: "Ойлар" }] : []),
+    ...(office ? [{ href: "/yetkazib-beruvchilar", label: "Етказиб — объектлар бўйича" }] : []),
     ...(canManageReference(user) ? [{ href: "/spravochnik", label: "Рўйхатлар" }] : []),
   ];
 

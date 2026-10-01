@@ -2,8 +2,9 @@ import { Prisma, type EntryKind, type EntryStatus } from "@prisma/client";
 import { z } from "zod";
 import { prisma, type Tx } from "@/lib/prisma";
 import { ServiceError, forbidden, notFound } from "@/lib/errors";
-import { MAX_AMOUNT, computeAmount, formatSom, parseQuantityMilli, parseSom, quantityMilliToString } from "@/lib/money";
+import { MAX_AMOUNT, computeAmount, formatQuantity, formatSom, parseQuantityMilli, parseSom, quantityMilliToString } from "@/lib/money";
 import { dbDateToIso, isValidIsoDate, isoToDbDate } from "@/lib/dates";
+import { unitLabel } from "@/lib/units";
 import { SITE_EXPENSE_KINDS, canCreateEntry, canModifyEntry, isOffice, isSiteExpense } from "@/lib/permissions";
 import type { SessionUser } from "@/types/auth";
 import { writeAudit, getAuditTrail, type AuditRow } from "@/services/audit";
@@ -143,6 +144,15 @@ function toRow(e: EntryWithRelations, user: SessionUser): EntryRow {
   };
 }
 
+/** Yozuvning qisqa tavsifi: tur bo'yicha eng muhim maydon + izoh (hisobotlarda bir qatorli ustun uchun). */
+export function describeEntry(r: EntryRow): string {
+  const parts =
+    r.kind === "SUPPLIER_PAYMENT"
+      ? [r.accountName]
+      : [r.materialName && `${r.materialName} ${formatQuantity(r.quantity)} ${r.unit ? unitLabel(r.unit) : ""}`.trim()];
+  return [...parts, r.note].filter(Boolean).join(" · ") || "—";
+}
+
 /** Audit uchun surat: id'lar bilan birga o'sha paytdagi nomlar ham (keyin nom o'zgarsa ham tarix o'qiladi). */
 function snapshot(e: EntryWithRelations) {
   return {
@@ -247,6 +257,7 @@ async function normalizeEntry(
     case "INCOME":
       if (!e.accountId) throw new ServiceError("Пул қайси ҳисобга тушгани танланмаган", 400);
       if (!e.counterpartyId) throw new ServiceError("Пул кимдан келгани танланмаган", 400);
+      if (!e.siteId) throw new ServiceError("Объект танланмаган", 400);
       single();
       e.materialId = null;
       e.toAccountId = null;
@@ -254,8 +265,8 @@ async function normalizeEntry(
     case "SUPPLIER_PAYMENT":
       if (!e.accountId) throw new ServiceError("Қайси ҳисобдан тўлангани танланмаган", 400);
       if (!e.counterpartyId) throw new ServiceError("Етказиб берувчи танланмаган", 400);
+      if (!e.siteId) throw new ServiceError("Объект танланмаган", 400);
       single();
-      e.siteId = null;
       e.materialId = null;
       e.toAccountId = null;
       break;

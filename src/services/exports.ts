@@ -5,11 +5,12 @@ import { ACCOUNT_TYPE_LABEL, KIND_LABEL, SITE_STATUS_LABEL } from "@/lib/labels"
 import { unitLabel } from "@/lib/units";
 import { isOffice } from "@/lib/permissions";
 import type { SessionUser } from "@/types/auth";
-import { listEntriesForExport, type EntryFilters, type EntryRow } from "@/services/entries";
+import { describeEntry, listEntriesForExport, type EntryFilters, type EntryRow } from "@/services/entries";
 import { getAccountBalances, getAccountStatement, type StatementRow } from "@/services/balances";
 import { getSiteCard, lastMonths, listSites } from "@/services/sites";
 import { getPeriodReport, type ReportLine } from "@/services/reports";
-import { getSupplierStatement, type SupplierStatementRow } from "@/services/suppliers";
+import { getSupplierStatement, getSupplierSiteBalances, type SupplierSiteRow, type SupplierStatementRow } from "@/services/suppliers";
+import { getPayerStatement, type PayerSiteRow } from "@/services/payers";
 
 /** Excel faylini qaytaradi: { buffer, filename }. Har bir hisobot faqat qiymatlar, formulasiz. */
 type ExportFile = { buffer: Buffer; filename: string };
@@ -148,6 +149,87 @@ export async function exportSupplierStatement(user: SessionUser, supplierId: num
     }),
   ]);
   return { buffer, filename: `Солиштириш_${fileSafe(st.supplier.name)}_${todayIso()}.xlsx` };
+}
+
+// ───────────────────────────── Yetkazib beruvchi: obyektlar bo'yicha hisob ─────────────────────────────
+
+export async function exportSupplierSites(
+  user: SessionUser,
+  supplierId: number,
+  q: { siteId?: number; from?: string; to?: string }
+): Promise<ExportFile> {
+  const card = await getSupplierSiteBalances(supplierId);
+  const history = await listEntriesForExport(user, { counterpartyId: supplierId, siteId: q.siteId, from: q.from, to: q.to, status: "ACTIVE" });
+
+  const buffer = await buildWorkbook([
+    sheet({
+      name: "Объектлар",
+      title: `${card.supplier.name} — объектлар бўйича (${formatDate(todayIso())} ҳолатига)`,
+      columns: [
+        { header: "Объект", width: 26, value: (r: SupplierSiteRow) => r.siteName },
+        { header: "Олинган товар", width: 16, kind: "money", value: (r) => r.received },
+        { header: "Тўланган пул", width: 16, kind: "money", value: (r) => r.paid },
+        { header: "Қолдиқ", width: 16, kind: "money", value: (r) => r.balance },
+      ],
+      rows: card.sites,
+      totals: { 1: card.received, 2: card.paid, 3: card.balance },
+    }),
+    sheet({
+      name: "Тарих",
+      title: `${card.supplier.name} — операциялар тарихи`,
+      subtitle: `Давр: ${period(q.from, q.to)}${q.siteId ? ` · объект: ${card.sites.find((s) => s.siteId === q.siteId)?.siteName ?? ""}` : ""}`,
+      columns: [
+        { header: "Сана", width: 11, kind: "date", value: (r: EntryRow) => excelDate(r.date) },
+        { header: "Объект", width: 20, value: (r) => r.siteName },
+        { header: "Тури", width: 20, value: (r) => KIND_LABEL[r.kind] },
+        { header: "Изоҳ", width: 32, value: (r) => describeEntry(r) },
+        { header: "Сумма", width: 16, kind: "money", value: (r) => BigInt(r.amount) },
+      ],
+      rows: history,
+      totals: { 4: history.reduce((a, r) => a + BigInt(r.amount), 0n) },
+    }),
+  ]);
+  return { buffer, filename: `Етказиб_${fileSafe(card.supplier.name)}_${todayIso()}.xlsx` };
+}
+
+// ───────────────────────────── Манба (пул берувчи): обyektlar bo'yicha hisob ─────────────────────────────
+
+export async function exportPayerSites(
+  user: SessionUser,
+  payerId: number,
+  q: { siteId?: number; from?: string; to?: string }
+): Promise<ExportFile> {
+  const st = await getPayerStatement(user, payerId, q);
+
+  const buffer = await buildWorkbook([
+    sheet({
+      name: "Объектлар",
+      title: `${st.payer.name} — объектлар бўйича (${formatDate(todayIso())} ҳолатига)`,
+      columns: [
+        { header: "Объект", width: 26, value: (r: PayerSiteRow) => r.siteName },
+        { header: "Сумма", width: 16, kind: "money", value: (r) => r.total },
+        { header: "Улуш, %", width: 10, kind: "qty", value: (r) => r.share },
+        { header: "Охирги ёзув", width: 13, kind: "date", value: (r) => excelDate(r.lastDate.toISOString().slice(0, 10)) },
+      ],
+      rows: st.sites,
+      totals: { 1: st.total },
+    }),
+    sheet({
+      name: "Тарих",
+      title: `${st.payer.name} — киримлар тарихи`,
+      subtitle: `Давр: ${period(q.from, q.to)}${q.siteId ? ` · объект: ${st.sites.find((s) => s.siteId === q.siteId)?.siteName ?? ""}` : ""}`,
+      columns: [
+        { header: "Сана", width: 11, kind: "date", value: (r: EntryRow) => excelDate(r.date) },
+        { header: "Объект", width: 20, value: (r) => r.siteName },
+        { header: "Ҳисоб", width: 20, value: (r) => r.accountName },
+        { header: "Изоҳ", width: 32, value: (r) => r.note },
+        { header: "Сумма", width: 16, kind: "money", value: (r) => BigInt(r.amount) },
+      ],
+      rows: st.rows,
+      totals: { 4: st.rows.reduce((a, r) => a + BigInt(r.amount), 0n) },
+    }),
+  ]);
+  return { buffer, filename: `Манба_${fileSafe(st.payer.name)}_${todayIso()}.xlsx` };
 }
 
 // ───────────────────────────── Jurnal, ob'ektlar, kassalar ─────────────────────────────

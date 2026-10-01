@@ -6,10 +6,12 @@ import { parseEntryFilters } from "@/services/entries";
 import {
   exportBalances,
   exportJournal,
+  exportPayerSites,
   exportPeriodReport,
   exportSite,
   exportSites,
   exportStatement,
+  exportSupplierSites,
   exportSupplierStatement,
 } from "@/services/exports";
 
@@ -18,8 +20,10 @@ import {
  *   /hisobot?siteId=&from=&to=   — davriy hisobot (Telegram uchun)
  *   /jurnal?...  /obyektlar  /obyekt?id=
  *   /hisoblar  /hisob?id=&month=  /yetkazib?id=&from=&to=   — faqat ofis
+ *   /yetkazib-obyektlar?id=&siteId=&from=&to=   — yetkazib beruvchi, obyektlar bo'yicha — faqat ofis
+ *   /manba?id=&siteId=&from=&to=   — pul beruvchi, obyektlar bo'yicha — faqat ofis
  */
-const FINANCE = new Set(["hisoblar", "hisob", "yetkazib"]);
+const FINANCE = new Set(["hisoblar", "hisob", "yetkazib", "yetkazib-obyektlar", "manba"]);
 
 export async function GET(request: Request, { params }: { params: Promise<{ report: string }> }) {
   const { report } = await params;
@@ -56,6 +60,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ repo
         break;
       case "yetkazib":
         file = await exportSupplierStatement(user, parseId(p.get("id") ?? ""), { from: date("from"), to: date("to") });
+        break;
+      case "yetkazib-obyektlar":
+        file = await exportSupplierSites(user, parseId(p.get("id") ?? ""), { siteId: optionalId(), from: date("from"), to: date("to") });
+        break;
+      case "manba":
+        file = await exportPayerSites(user, parseId(p.get("id") ?? ""), { siteId: optionalId(), from: date("from"), to: date("to") });
         break;
       default:
         return errorResponse("Номаълум ҳисобот", 404);

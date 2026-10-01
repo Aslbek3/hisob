@@ -138,6 +138,36 @@ export default async function SiteCardPage({ params }: { params: Promise<{ id: s
         )}
       </section>
 
+      {card.payers && card.payers.length > 0 && (
+        <section className="mb-6">
+          <h2 className="font-semibold mb-2">Кимдан келган пул</h2>
+          <div className="overflow-x-auto border border-line max-w-[520px]">
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th>Манба</th>
+                  <th className="num">Сумма</th>
+                </tr>
+              </thead>
+              <tbody>
+                {card.payers.map((p) => (
+                  <tr key={p.id}>
+                    <td>
+                      <Link href={`/manbalar/${p.id}`} className="link">
+                        {p.name}
+                      </Link>
+                    </td>
+                    <td className="num">
+                      <Money value={p.total} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
       {card.materials.length > 0 && (
         <section>
           <h2 className="font-semibold mb-2">Нималар олинган</h2>

@@ -75,7 +75,7 @@ export default async function KassalarPage() {
 
       <section className="bg-paper border border-line px-4 py-3 mt-6">
         <h2 className="text-[17px] font-semibold mb-2">Пул келди (кирим)</h2>
-        <MoneyMoveForm kind="INCOME" payers={options.payers} accounts={options.accounts} today={today} />
+        <MoneyMoveForm kind="INCOME" payers={options.payers} accounts={options.accounts} sites={options.sites} today={today} />
       </section>
 
       <section className="bg-paper border border-line px-4 py-3 mt-4">
