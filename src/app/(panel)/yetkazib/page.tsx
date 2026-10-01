@@ -9,13 +9,18 @@ import { NewSupplierForm } from "./NewSupplierForm";
 
 export default async function SuppliersPage() {
   await requirePageUser(["DIRECTOR", "ACCOUNTANT"]);
-  const suppliers = (await listSupplierBalances()).filter((s) => s.isActive || s.paid || s.received);
+  const suppliers = (await listSupplierBalances())
+    .filter((s) => s.isActive || s.paid || s.received)
+    .sort((a, b) => {
+      const debt = (x: typeof a) => (x.balance !== 0n ? 0 : 1);
+      return debt(a) - debt(b) || a.name.localeCompare(b.name);
+    });
 
   return (
     <>
       <PageHeader
         title="Етказиб берувчилар"
-        subtitle="Заводга қанча пул ўтказилди ва ундан қанча товар келди — фарқи ўзи ҳисобланади"
+        subtitle="Заводга қанча пул ўтказилди ва ундан қанча товар келди — фарқи ўзи ҳисобланади, қарзи борлар юқорида"
       />
       <NewSupplierForm />
       <div className="overflow-x-auto border border-line mt-3">
@@ -23,9 +28,9 @@ export default async function SuppliersPage() {
           <thead>
             <tr>
               <th>Номи</th>
-              <th className="num">Тўланган пул</th>
-              <th className="num">Келган товар</th>
-              <th>Ҳолат</th>
+              <th className="num">Жами олинган товар</th>
+              <th className="num">Жами тўланган пул</th>
+              <th>Қолдиқ</th>
               <th>Охирги ёзув</th>
             </tr>
           </thead>
@@ -45,8 +50,8 @@ export default async function SuppliersPage() {
                   </Link>
                   {s.phone && <div className="text-[13px] text-ink-3">{s.phone}</div>}
                 </td>
-                <td className="num"><Money value={s.paid} /></td>
                 <td className="num"><Money value={s.received} /></td>
+                <td className="num"><Money value={s.paid} /></td>
                 <td><BalanceLabel value={s.balance} /></td>
                 <td className="text-ink-3">{s.lastDate ? formatDate(dbDateToIso(s.lastDate)) : "—"}</td>
               </tr>

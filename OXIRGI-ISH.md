@@ -1,3 +1,31 @@
+## 2026-10-01 — Yetkazib beruvchi: ikki sahifa bittaga birlashtirildi
+
+- **Muammo**: `/yetkazib` (eski, Солиштириш далолатномаси + то'лов formasi)
+  va `/yetkazib-beruvchilar` (yangi, obyektlar jadvali) alohida ikki sahifa
+  edi, ikkalasi ham Sidebar'da — takrorlanish.
+- **Nima qilindi**: Hammasi `/yetkazib` va `/yetkazib/[id]` ichiga birlashtirildi:
+  - Ro'yxat (`/yetkazib`): qoldiq ustunlari va "qarzi borlar yuqorida" tartibi
+    yangi sahifadan olindi, `NewSupplierForm` saqlanib qoldi.
+  - Kartochka (`/yetkazib/[id]`): eski "Солиштириш далолатномаси" (давр
+    бошига қолдиқ, кетма-кет ёзувлар, running balance, то'лов formasi) +
+    yangi "obyektlar jadvali" (obyekt|olingan|to'langan|qoldiq, bosilganda
+    shu obyekt bo'yicha tarix filtrlanadi). Ikki Excel eksport tugmasi
+    (Солиштириш va Объектлар бўйича) yonma-yon.
+  - `getSupplierStatement` servisi o'zgarmadi (siteId filtri yo'q) — shu
+    sababli obyekt bo'yicha filtr sahifaning o'zida (JS'da) qilinadi, running
+    balance baribir umumiy (zavod bo'yicha) qoldiqni ko'rsatadi, faqat shu
+    obyektga tegishli qatorlar ko'rinadi.
+  - `src/app/(panel)/yetkazib-beruvchilar/` papkasi butunlay o'chirildi.
+  - `layout.tsx` menyusidan "Етказиб — объектлар бўйича" bandi olib tashlandi
+    — faqat "Етказиб берувчилар" qoldi.
+  - Eksport route (`/api/export/yetkazib-obyektlar`) va servis funksiyasi
+    o'zgarishsiz qoldi, endi faqat yagona sahifadan chaqiriladi.
+  - `grep -rn "yetkazib-beruvchilar"` — butun loyihada hech narsa topilmadi.
+- **Natija**: `npm run typecheck`, `npm test`, `npm run build` — xatosiz.
+  Vaqtinchalik sessiya bilan tekshirildi: ro'yxat, kartochka, obyekt filtri,
+  ikkala eksport, eski manzil (404). `pm2 restart hisob` bilan joylashtirildi.
+- **Keyingi qadam**: yo'q.
+
 ## 2026-10-01 — Manbalar (investor): obyektlar bo'yicha hisobot
 
 - **Nima qilindi**: Yetkazib beruvchi kartochkasi uslubida, lekin qoldiq/qarz

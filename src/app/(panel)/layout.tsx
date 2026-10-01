@@ -28,7 +28,6 @@ export default async function PanelLayout({ children }: { children: React.ReactN
     { href: "/obyektlar", label: "Объектлар" },
     { href: "/jurnal", label: "Барча ёзувлар" },
     ...(office ? [{ href: "/oylar", label: "Ойлар" }] : []),
-    ...(office ? [{ href: "/yetkazib-beruvchilar", label: "Етказиб — объектлар бўйича" }] : []),
     ...(canManageReference(user) ? [{ href: "/spravochnik", label: "Рўйхатлар" }] : []),
   ];
 
