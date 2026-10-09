@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Dialog } from "@/components/Dialog";
+import { toStorageText } from "@/lib/alphabet";
 import { similarNames } from "@/lib/normalize";
 import { UNITS } from "@/lib/units";
 import { sendJson } from "@/lib/useServerMutation";
@@ -36,7 +37,9 @@ export function NewNameDialog({
   const [phone, setPhone] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
-  const similar = similarNames(name, existing);
+  // Lotin rejimida yozilgan nomni ham mavjud (doim kirill) nomlar bilan solishtirish uchun
+  const cyrName = toStorageText(name).replace(/\s+/g, " ").trim();
+  const similar = similarNames(cyrName, existing);
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
@@ -44,8 +47,8 @@ export function NewNameDialog({
     setError(null);
     const body =
       mode === "item"
-        ? { name, unit, categoryId: Number(categoryId) || 0 }
-        : { name, kind: "SUPPLIER", phone };
+        ? { name: cyrName, unit, categoryId: Number(categoryId) || 0 }
+        : { name: cyrName, kind: "SUPPLIER", phone };
     try {
       const res = await sendJson(mode === "item" ? "/api/reference/materials" : "/api/reference/counterparties", "POST", body);
       const data = await res.json().catch(() => null);
@@ -53,7 +56,7 @@ export function NewNameDialog({
         setError(data?.error ?? "Сақланмади");
         return;
       }
-      onCreated({ id: data.id, name: name.replace(/\s+/g, " ").trim(), unit, categoryId: Number(categoryId) });
+      onCreated({ id: data.id, name: cyrName, unit, categoryId: Number(categoryId) });
     } catch {
       setError("Тармоқ хатоси");
     } finally {

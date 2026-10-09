@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toStorageText } from "@/lib/alphabet";
 import { sendJson, useServerMutation } from "@/lib/useServerMutation";
 
 export type FieldType = "text" | "select" | "select-id" | "checkbox" | "money" | "number";
@@ -64,6 +65,7 @@ export function ReferenceEditor({
       const v = values[f.key];
       if (f.type === "select-id") out[f.key] = v ? Number(v) : null;
       else if (f.type === "number") out[f.key] = Number(v) || 0;
+      else if (f.type === "text") out[f.key] = typeof v === "string" ? toStorageText(v) : v;
       else out[f.key] = v;
     }
     return out;

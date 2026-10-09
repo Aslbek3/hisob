@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toStorageText } from "@/lib/alphabet";
 import { formatSom, parseSom } from "@/lib/money";
 import { sendJson, useServerMutation } from "@/lib/useServerMutation";
 
@@ -35,7 +36,7 @@ export function MoneyMoveForm(props: Props) {
 
   async function submit(allowDuplicate: boolean) {
     setDupMessage(null);
-    const base = { kind: props.kind, date: props.date ?? date, unitPrice: amount, quantity: "1", note, allowDuplicate };
+    const base = { kind: props.kind, date: props.date ?? date, unitPrice: amount, quantity: "1", note: toStorageText(note), allowDuplicate };
     const body =
       props.kind === "INCOME"
         ? {

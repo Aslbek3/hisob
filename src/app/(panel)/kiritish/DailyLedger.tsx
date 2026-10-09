@@ -4,6 +4,7 @@ import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ComboCell, type ComboOption } from "@/components/grid/ComboCell";
 import { MoneyMoveForm } from "@/components/MoneyMoveForm";
+import { toStorageText } from "@/lib/alphabet";
 import { computeAmount, formatQuantity, formatSom, parseQuantityMilli, parseSom } from "@/lib/money";
 import { formatDate, formatMonth, monthStartIso, todayIso } from "@/lib/dates";
 import { unitLabel } from "@/lib/units";
@@ -444,7 +445,7 @@ export function DailyLedger(props: {
       unitPrice: r.unitPrice,
       amount: r.amountTouched ? r.amount : null,
       adjustReason: mismatch(r) ? r.adjustReason : null,
-      note: r.note,
+      note: toStorageText(r.note),
       allowDuplicate,
     };
     try {
@@ -896,7 +897,7 @@ export function DailyLedger(props: {
       {/* ── Shu ob'ekt uchun kelgan pul ── */}
       {site && props.showIncome && (
         <section className="mt-8">
-          <h2 className="text-[17px] font-semibold mb-2">Пул келди (кирим) — {formatDate(date)}</h2>
+          <h2 className="text-[17px] font-semibold mb-2">Пул келди (кирим) — {site.name} — {formatDate(date)}</h2>
           {incomes.length > 0 && (
             <table className="tbl border border-line mb-3 max-w-[820px]">
               <thead>

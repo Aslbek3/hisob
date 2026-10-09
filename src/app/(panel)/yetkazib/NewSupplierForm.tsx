@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toStorageText } from "@/lib/alphabet";
 import { sendJson, useServerMutation } from "@/lib/useServerMutation";
 
 export function NewSupplierForm() {
@@ -21,7 +22,8 @@ export function NewSupplierForm() {
       onSubmit={async (e) => {
         e.preventDefault();
         const f = new FormData(e.currentTarget);
-        const ok = await run(() => sendJson("/api/reference/counterparties", "POST", { name: f.get("name"), phone: f.get("phone"), kind: "SUPPLIER" }));
+        const name = toStorageText(String(f.get("name") ?? ""));
+        const ok = await run(() => sendJson("/api/reference/counterparties", "POST", { name, phone: f.get("phone"), kind: "SUPPLIER" }));
         if (ok) setOpen(false);
       }}
     >

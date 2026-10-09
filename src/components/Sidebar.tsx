@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { AlphabetToggle } from "@/components/AlphabetToggle";
 
 export type NavItem = { href: string; label: string };
 
@@ -49,23 +50,26 @@ export function Sidebar({ main, more, userName, roleLabel }: { main: NavItem[]; 
       <header className="md:hidden sticky top-0 z-40 bg-paper border-b border-line">
         <div className="flex items-center justify-between px-4 h-[52px]">
           <span className="text-[18px] font-semibold">Ҳисоб</span>
-          <button
-            type="button"
-            onClick={() => setOpen((v) => !v)}
-            aria-label={open ? "Менюни ёпиш" : "Менюни очиш"}
-            aria-expanded={open}
-            className="w-[40px] h-[40px] grid place-items-center rounded-[4px] hover:bg-canvas"
-          >
-            {open ? (
-              <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <path d="M4 4l14 14M18 4L4 18" />
-              </svg>
-            ) : (
-              <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <path d="M3 6h16M3 11h16M3 16h16" />
-              </svg>
-            )}
-          </button>
+          <div className="flex items-center gap-2">
+            <AlphabetToggle />
+            <button
+              type="button"
+              onClick={() => setOpen((v) => !v)}
+              aria-label={open ? "Менюни ёпиш" : "Менюни очиш"}
+              aria-expanded={open}
+              className="w-[40px] h-[40px] grid place-items-center rounded-[4px] hover:bg-canvas"
+            >
+              {open ? (
+                <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <path d="M4 4l14 14M18 4L4 18" />
+                </svg>
+              ) : (
+                <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <path d="M3 6h16M3 11h16M3 16h16" />
+                </svg>
+              )}
+            </button>
+          </div>
         </div>
         {open && (
           <div className="border-t border-line max-h-[calc(100vh-52px)] overflow-y-auto">
@@ -83,7 +87,10 @@ export function Sidebar({ main, more, userName, roleLabel }: { main: NavItem[]; 
 
       {/* Desktop: doim ochiq yon menyu */}
       <aside className="hidden md:flex w-[220px] shrink-0 border-r border-line bg-paper flex-col sticky top-0 h-screen">
-        <div className="px-4 py-4 text-[18px] font-semibold">Ҳисоб</div>
+        <div className="px-4 py-4 flex items-center justify-between">
+          <span className="text-[18px] font-semibold">Ҳисоб</span>
+          <AlphabetToggle />
+        </div>
         <nav className="flex flex-col px-2 gap-0.5">{main.map((i) => link(i, true))}</nav>
         <div className="px-5 mt-6 mb-1 text-[12px] text-ink-3">Бошқа</div>
         <nav className="flex flex-col px-2 gap-px">{more.map((i) => link(i, false))}</nav>

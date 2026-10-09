@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { SiteStatus } from "@prisma/client";
+import { toStorageText } from "@/lib/alphabet";
 import { sendJson, useServerMutation } from "@/lib/useServerMutation";
 
 export function NewSiteForm() {
@@ -21,7 +22,9 @@ export function NewSiteForm() {
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
-    const ok = await run(() => sendJson("/api/sites", "POST", { name: f.get("name"), address: f.get("address") }));
+    const name = toStorageText(String(f.get("name") ?? ""));
+    const address = toStorageText(String(f.get("address") ?? ""));
+    const ok = await run(() => sendJson("/api/sites", "POST", { name, address }));
     if (ok) setOpen(false);
   }
 
