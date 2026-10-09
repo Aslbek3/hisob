@@ -13,6 +13,7 @@
     "db:seed": "tsx prisma/seed.ts",
     "create-user": "tsx scripts/create-user.ts",
     "seed-demo": "tsx scripts/seed-demo.ts",
+    "seed-reference": "tsx scripts/seed-reference.ts",
     "cleanup-demo": "tsx scripts/cleanup-demo.ts",
     "test": "tsx --test src/lib/*.test.ts"
   },
