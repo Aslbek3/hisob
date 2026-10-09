@@ -18,7 +18,7 @@ async function main() {
 
   if (!login || !/^[a-z0-9._-]{3,32}$/.test(login)) throw new Error("USER_LOGIN: 3–32 ta lotin harf, raqam, . _ -");
   if (!name) throw new Error("USER_NAME berilmagan");
-  if (!password || password.length < 12) throw new Error("USER_PASSWORD kamida 12 belgi bo'lsin");
+  if (!password || password.length < 8) throw new Error("USER_PASSWORD kamida 8 belgi bo'lsin");
   if (!["DIRECTOR", "ACCOUNTANT", "FOREMAN"].includes(role)) throw new Error("USER_ROLE: DIRECTOR | ACCOUNTANT | FOREMAN");
   if (await prisma.user.findUnique({ where: { login } })) throw new Error(`"${login}" allaqachon bor`);
 
